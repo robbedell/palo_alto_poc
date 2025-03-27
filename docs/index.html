@@ -124,118 +124,187 @@
             alert("Default configuration removed. Only custom values will be included in the scripts.");
         }
 
-        async function fetchDefaultScripts() {
-            try {
-                const pythonResponse = await fetch('./east-fw-config.py');
-                const terraformResponse = await fetch('./palo_alto_firewall.tf');
-                const ansibleResponse = await fetch('./ansible_playbook.yml');
+        function generateScripts() {
+            const firewallIp = document.getElementById("firewallIp").value;
+            const apiKey = document.getElementById("apiKey").value;
+            const firewallHostname = document.getElementById("firewallHostname").value || "PANFW01";
 
-                if (!pythonResponse.ok) {
-                    throw new Error("Failed to fetch Python script: " + pythonResponse.statusText);
+            const customIps = [];
+            document.querySelectorAll("#customIpContainer .row").forEach(row => {
+                const interfaceName = row.querySelector(".interface-name").value;
+                const ip = row.querySelector(".ip-address").value;
+                const subnet = row.querySelector(".subnet-mask").value;
+                if (interfaceName) {
+                    customIps.push({ interfaceName, ip, subnet });
                 }
-                if (!terraformResponse.ok) {
-                    throw new Error("Failed to fetch Terraform script: " + terraformResponse.statusText);
+            });
+
+            const customAddresses = [];
+            document.querySelectorAll("#customAddressContainer .row").forEach(row => {
+                const name = row.querySelector(".address-name").value;
+                const ip = row.querySelector(".address-ip").value;
+                const description = row.querySelector(".address-description").value;
+                if (name) {
+                    customAddresses.push({ name, ip, description });
                 }
-                if (!ansibleResponse.ok) {
-                    throw new Error("Failed to fetch Ansible script: " + ansibleResponse.statusText);
+            });
+
+            const customServices = [];
+            document.querySelectorAll("#customServiceContainer .row").forEach(row => {
+                const name = row.querySelector(".service-name").value;
+                const protocol = row.querySelector(".service-protocol").value;
+                const port = row.querySelector(".service-port").value;
+                const description = row.querySelector(".service-description").value;
+                if (name) {
+                    customServices.push({ name, protocol, port, description });
                 }
+            });
 
-                const pythonScript = await pythonResponse.text();
-                const terraformScript = await terraformResponse.text();
-                const ansibleScript = await ansibleResponse.text();
+            const defaultIps = [
+                { interfaceName: "ethernet1/1", ip: null, subnet: null },
+                { interfaceName: "ethernet1/2", ip: null, subnet: null },
+                { interfaceName: "ethernet1/3", ip: null, subnet: null },
+                { interfaceName: "ethernet1/4", ip: null, subnet: null }
+            ];
 
-                return { pythonScript, terraformScript, ansibleScript };
-            } catch (error) {
-                alert("Error fetching default scripts: " + error.message);
-                console.error("Error fetching default scripts:", error);
-                throw error;
-            }
-        }
+            const defaultAddresses = [
+                { name: "web_server", ip: "192.168.30.10", description: "Web Server Address" },
+                { name: "db_server", ip: "192.168.40.10", description: "Database Server Address" }
+            ];
 
-        async function generateScripts() {
-            try {
-                const { pythonScript, terraformScript, ansibleScript } = await fetchDefaultScripts();
+            const defaultServices = [
+                { name: "http", protocol: "tcp", port: "80", description: "HTTP Service" },
+                { name: "https", protocol: "tcp", port: "443", description: "HTTPS Service" }
+            ];
 
-                const firewallIp = document.getElementById("firewallIp").value;
-                const apiKey = document.getElementById("apiKey").value;
-                const firewallHostname = document.getElementById("firewallHostname").value || "PANFW01";
+            const ips = includeDefaults ? [...defaultIps, ...customIps] : customIps;
+            const addresses = includeDefaults ? [...defaultAddresses, ...customAddresses] : customAddresses;
+            const services = includeDefaults ? [...defaultServices, ...customServices] : customServices;
 
-                const customIps = [];
-                document.querySelectorAll("#customIpContainer .row").forEach(row => {
-                    const interfaceName = row.querySelector(".interface-name").value;
-                    const ip = row.querySelector(".ip-address").value;
-                    const subnet = row.querySelector(".subnet-mask").value;
-                    if (interfaceName) {
-                        customIps.push({ interfaceName, ip, subnet });
-                    }
-                });
+            const pythonScript = `
+import requests
+import logging
 
-                const customAddresses = [];
-                document.querySelectorAll("#customAddressContainer .row").forEach(row => {
-                    const name = row.querySelector(".address-name").value;
-                    const ip = row.querySelector(".address-ip").value;
-                    const description = row.querySelector(".address-description").value;
-                    if (name) {
-                        customAddresses.push({ name, ip, description });
-                    }
-                });
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-                const customServices = [];
-                document.querySelectorAll("#customServiceContainer .row").forEach(row => {
-                    const name = row.querySelector(".service-name").value;
-                    const protocol = row.querySelector(".service-protocol").value;
-                    const port = row.querySelector(".service-port").value;
-                    const description = row.querySelector(".service-description").value;
-                    if (name) {
-                        customServices.push({ name, protocol, port, description });
-                    }
-                });
+firewall_ip = '${firewallIp}'
+api_key = '${apiKey}'
+firewall_hostname = '${firewallHostname}'
 
-                const defaultIps = [
-                    { interfaceName: "ethernet1/1", ip: null, subnet: null },
-                    { interfaceName: "ethernet1/2", ip: null, subnet: null },
-                    { interfaceName: "ethernet1/3", ip: null, subnet: null },
-                    { interfaceName: "ethernet1/4", ip: null, subnet: null }
-                ];
+custom_ips = ${JSON.stringify(ips, null, 4)}
+custom_addresses = ${JSON.stringify(addresses, null, 4)}
+custom_services = ${JSON.stringify(services, null, 4)}
 
-                const defaultAddresses = [
-                    { name: "web_server", ip: "192.168.30.10", description: "Web Server Address" },
-                    { name: "db_server", ip: "192.168.40.10", description: "Database Server Address" }
-                ];
+# Add your Python logic here
+`;
 
-                const defaultServices = [
-                    { name: "http", protocol: "tcp", port: "80", description: "HTTP Service" },
-                    { name: "https", protocol: "tcp", port: "443", description: "HTTPS Service" }
-                ];
+            const terraformScript = `
+provider "panos" {
+  hostname = "${firewallIp}"
+  api_key  = "${apiKey}"
+}
 
-                const ips = includeDefaults ? [...defaultIps, ...customIps] : customIps;
-                const addresses = includeDefaults ? [...defaultAddresses, ...customAddresses] : customAddresses;
-                const services = includeDefaults ? [...defaultServices, ...customServices] : customServices;
+resource "panos_device" "firewall" {
+  hostname = "${firewallHostname}"
+}
 
-                const updatedPythonScript = pythonScript
-                    .replace(/firewall_ip = .*/, `firewall_ip = '${firewallIp}'`)
-                    .replace(/api_key = .*/, `api_key = '${apiKey}'`)
-                    .replace(/firewall_hostname = .*/, `firewall_hostname = '${firewallHostname}'`)
-                    .replace(/custom_ips = .*/, `custom_ips = ${JSON.stringify(ips, null, 4)}`)
-                    .replace(/custom_addresses = .*/, `custom_addresses = ${JSON.stringify(addresses, null, 4)}`)
-                    .replace(/custom_services = .*/, `custom_services = ${JSON.stringify(services, null, 4)}`);
+resource "panos_interface" "ethernet" {
+  for_each = toset(${JSON.stringify(ips.map(ip => ip.interfaceName))})
 
-                const updatedTerraformScript = terraformScript
-                    .replace(/hostname = .*/, `hostname = "${firewallIp}"`)
-                    .replace(/api_key  = .*/, `api_key  = "${apiKey}"`);
+  name = each.key
+  mode = "layer3"
 
-                const updatedAnsibleScript = ansibleScript
-                    .replace(/ip_address: .*/, `ip_address: "${firewallIp}"`)
-                    .replace(/api_key: .*/, `api_key: "${apiKey}"`);
+  dynamic "ip" {
+    for_each = lookup(${JSON.stringify(ips.reduce((acc, ip) => {
+        acc[ip.interfaceName] = { ip: ip.ip, subnet: ip.subnet };
+        return acc;
+    }, {}))}, each.key, {})
 
-                downloadFile("east-fw-config.py", updatedPythonScript);
-                downloadFile("palo_alto_firewall.tf", updatedTerraformScript);
-                downloadFile("ansible_playbook.yml", updatedAnsibleScript);
+    content {
+      address = "${ip.value.ip}/${ip.value.subnet}"
+    }
+  }
 
-                alert("Scripts generated and downloaded successfully!");
-            } catch (error) {
-                console.error("Error generating scripts:", error);
-            }
+  dhcp_client {
+    enable = ip.value == null
+    create_default_route = false
+  }
+}
+
+resource "panos_address_object" "custom_addresses" {
+  for_each = ${JSON.stringify(addresses.reduce((acc, addr) => {
+        acc[addr.name] = { ip: addr.ip, description: addr.description };
+        return acc;
+    }, {}))}
+
+  name        = each.key
+  value       = each.value.ip
+  description = each.value.description
+}
+
+resource "panos_service_object" "custom_services" {
+  for_each = ${JSON.stringify(services.reduce((acc, svc) => {
+        acc[svc.name] = { protocol: svc.protocol, port: svc.port, description: svc.description };
+        return acc;
+    }, {}))}
+
+  name        = each.key
+  protocol    = each.value.protocol
+  destination_port = each.value.port
+  description = each.value.description
+}
+`;
+
+            const ansibleScript = `
+- name: Configure Palo Alto Firewall
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Configure interfaces
+      panos_interface:
+        provider:
+          ip_address: "${firewallIp}"
+          api_key: "${apiKey}"
+        name: "{{ item.name }}"
+        mode: "layer3"
+        ip: "{{ item.ip }}"
+        dhcp_client:
+          enable: "{{ item.dhcp }}"
+          create_default_route: false
+      loop: ${JSON.stringify(ips.map(ip => ({
+                name: ip.interfaceName,
+                ip: ip.ip ? `${ip.ip}/${ip.subnet}` : null,
+                dhcp: !ip.ip
+            })))}
+
+    - name: Add custom address objects
+      panos_address_object:
+        provider:
+          ip_address: "${firewallIp}"
+          api_key: "${apiKey}"
+        name: "{{ item.name }}"
+        value: "{{ item.ip }}"
+        description: "{{ item.description }}"
+      loop: ${JSON.stringify(addresses)}
+
+    - name: Add custom service objects
+      panos_service_object:
+        provider:
+          ip_address: "${firewallIp}"
+          api_key: "${apiKey}"
+        name: "{{ item.name }}"
+        protocol: "{{ item.protocol }}"
+        destination_port: "{{ item.port }}"
+        description: "{{ item.description }}"
+      loop: ${JSON.stringify(services)}
+`;
+
+            downloadFile("east-fw-config.py", pythonScript);
+            downloadFile("palo_alto_firewall.tf", terraformScript);
+            downloadFile("ansible_playbook.yml", ansibleScript);
+
+            alert("Scripts generated and downloaded successfully!");
         }
 
         function downloadFile(filename, content) {
