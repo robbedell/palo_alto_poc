@@ -43,3 +43,27 @@ resource "panos_security_rule" "poc_any_any" {
   action        = "allow"
   tags          = ["POC-DELETE"]
 }
+
+// Additional configuration options
+resource "panos_address_object" "custom_addresses" {
+  for_each = {
+    "web_server" = { ip = "192.168.30.10", description = "Web Server Address" },
+    "db_server"  = { ip = "192.168.40.10", description = "Database Server Address" }
+  }
+
+  name        = each.key
+  value       = each.value.ip
+  description = each.value.description
+}
+
+resource "panos_service_object" "custom_services" {
+  for_each = {
+    "http"  = { protocol = "tcp", port = "80", description = "HTTP Service" },
+    "https" = { protocol = "tcp", port = "443", description = "HTTPS Service" }
+  }
+
+  name        = each.key
+  protocol    = each.value.protocol
+  destination_port = each.value.port
+  description = each.value.description
+}

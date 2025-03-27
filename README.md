@@ -103,6 +103,35 @@ For interfaces without custom IPs, DHCP will be enabled by default.
 - **Firewall Management IP**: Replace `192.168.1.1` with the actual management IP of your firewall.
 - **API Key**: Replace `YOUR_API_KEY` with the API key generated from the firewall.
 
+## Additional Configuration Options
+
+### Custom Address Objects
+You can define custom address objects for specific IPs. For example:
+- **Name**: `web_server`
+- **IP Address**: `192.168.30.10`
+- **Description**: `Web Server Address`
+
+#### Python:
+Update the `custom_addresses` dictionary in `east-fw-config.py`.
+
+#### Ansible:
+Update the `loop` section in the `Add custom address objects` task in `ansible_playbook.yml`.
+
+### Custom Service Objects
+You can define custom service objects for specific protocols and ports. For example:
+- **Name**: `http`
+- **Protocol**: `tcp`
+- **Port**: `80`
+- **Description**: `HTTP Service`
+
+#### Python:
+Update the `custom_services` dictionary in `east-fw-config.py`.
+
+#### Ansible:
+Update the `loop` section in the `Add custom service objects` task in `ansible_playbook.yml`.
+
+These options can also be configured via the webpage or directly in the Terraform script.
+
 ## References
 
 - [Palo Alto Networks XML API Documentation](https://docs.paloaltonetworks.com/pan-os/10-1/pan-os-panorama-api)

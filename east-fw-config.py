@@ -129,6 +129,58 @@ def add_security_policy():
     else:
         logging.error(f"Failed to add policy {policy_name}.")
 
+# Add custom address objects
+def add_address_objects(custom_addresses):
+    for name, details in custom_addresses.items():
+        logging.info(f"Adding address object {name}...")
+        address_xpath = f"/config/devices/entry[@name='localhost.localdomain']/address/entry[@name='{name}']"
+        address_element = f"""
+        <entry name="{name}">
+            <ip-netmask>{details['ip']}</ip-netmask>
+            <description>{details.get('description', '')}</description>
+        </entry>
+        """
+        address_params = {
+            'type': 'config',
+            'action': 'set',
+            'xpath': address_xpath,
+            'element': address_element
+        }
+
+        response_address = send_request(address_xpath, address_params)
+        if is_success(response_address):
+            logging.info(f"Address object {name} added successfully.")
+        else:
+            logging.error(f"Failed to add address object {name}.")
+
+# Add custom service objects
+def add_service_objects(custom_services):
+    for name, details in custom_services.items():
+        logging.info(f"Adding service object {name}...")
+        service_xpath = f"/config/devices/entry[@name='localhost.localdomain']/service/entry[@name='{name}']"
+        service_element = f"""
+        <entry name="{name}">
+            <protocol>
+                <{details['protocol']}>
+                    <port>{details['port']}</port>
+                </{details['protocol']}>
+            </protocol>
+            <description>{details.get('description', '')}</description>
+        </entry>
+        """
+        service_params = {
+            'type': 'config',
+            'action': 'set',
+            'xpath': service_xpath,
+            'element': service_element
+        }
+
+        response_service = send_request(service_xpath, service_params)
+        if is_success(response_service):
+            logging.info(f"Service object {name} added successfully.")
+        else:
+            logging.error(f"Failed to add service object {name}.")
+
 # Main execution
 if __name__ == "__main__":
     logging.info("Starting configuration...")
@@ -136,7 +188,17 @@ if __name__ == "__main__":
         "ethernet1/1": {"ip": "192.168.10.1", "subnet": "24"},
         "ethernet1/2": {"ip": "192.168.20.1", "subnet": "24"}
     }
+    custom_addresses = {
+        "web_server": {"ip": "192.168.30.10", "description": "Web Server Address"},
+        "db_server": {"ip": "192.168.40.10", "description": "Database Server Address"}
+    }
+    custom_services = {
+        "http": {"protocol": "tcp", "port": "80", "description": "HTTP Service"},
+        "https": {"protocol": "tcp", "port": "443", "description": "HTTPS Service"}
+    }
     configure_interfaces(custom_ips=custom_ips)
     add_virtual_routers()
     add_security_policy()
+    add_address_objects(custom_addresses)
+    add_service_objects(custom_services)
     logging.info("Configuration completed.")

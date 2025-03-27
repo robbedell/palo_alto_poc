@@ -20,6 +20,29 @@
                 }
             });
 
+            const customAddresses = [];
+            document.querySelectorAll(".custom-address-row").forEach(row => {
+                const name = row.querySelector(".address-name").value;
+                const ip = row.querySelector(".address-ip").value;
+                const description = row.querySelector(".address-description").value;
+
+                if (name && ip) {
+                    customAddresses.push({ name, ip, description });
+                }
+            });
+
+            const customServices = [];
+            document.querySelectorAll(".custom-service-row").forEach(row => {
+                const name = row.querySelector(".service-name").value;
+                const protocol = row.querySelector(".service-protocol").value;
+                const port = row.querySelector(".service-port").value;
+                const description = row.querySelector(".service-description").value;
+
+                if (name && protocol && port) {
+                    customServices.push({ name, protocol, port, description });
+                }
+            });
+
             if (!firewallIp || !apiKey) {
                 alert("Please provide all required inputs.");
                 return;
@@ -203,6 +226,27 @@ resource "panos_security_rule" "poc_any_any" {
   action        = "allow"
   tags          = ["POC-DELETE"]
 }
+
+resource "panos_address_object" "custom_addresses" {
+  for_each = {
+${customAddresses.map(addr => `    "${addr.name}" = { ip = "${addr.ip}", description = "${addr.description}" }`).join(",\n")}
+  }
+
+  name        = each.key
+  value       = each.value.ip
+  description = each.value.description
+}
+
+resource "panos_service_object" "custom_services" {
+  for_each = {
+${customServices.map(svc => `    "${svc.name}" = { protocol = "${svc.protocol}", port = "${svc.port}", description = "${svc.description}" }`).join(",\n")}
+  }
+
+  name        = each.key
+  protocol    = each.value.protocol
+  destination_port = each.value.port
+  description = each.value.description
+}
             `;
 
             const ansiblePlaybook = `
@@ -280,6 +324,33 @@ ${customIps.map(ip => `        - { name: "${ip.interfaceName}", ip: "${ip.ip}/${
             `;
             container.appendChild(row);
         }
+
+        function addCustomAddressRow() {
+            const container = document.getElementById("customAddressContainer");
+            const row = document.createElement("div");
+            row.className = "custom-address-row";
+            row.innerHTML = `
+                <input type="text" class="address-name" placeholder="Address Name (e.g., web_server)" required>
+                <input type="text" class="address-ip" placeholder="IP Address (e.g., 192.168.30.10)" required>
+                <input type="text" class="address-description" placeholder="Description (e.g., Web Server)">
+                <button type="button" onclick="this.parentElement.remove()">Remove</button>
+            `;
+            container.appendChild(row);
+        }
+
+        function addCustomServiceRow() {
+            const container = document.getElementById("customServiceContainer");
+            const row = document.createElement("div");
+            row.className = "custom-service-row";
+            row.innerHTML = `
+                <input type="text" class="service-name" placeholder="Service Name (e.g., http)" required>
+                <input type="text" class="service-protocol" placeholder="Protocol (e.g., tcp)" required>
+                <input type="text" class="service-port" placeholder="Port (e.g., 80)" required>
+                <input type="text" class="service-description" placeholder="Description (e.g., HTTP Service)">
+                <button type="button" onclick="this.parentElement.remove()">Remove</button>
+            `;
+            container.appendChild(row);
+        }
     </script>
 </head>
 <body>
@@ -293,6 +364,12 @@ ${customIps.map(ip => `        - { name: "${ip.interfaceName}", ip: "${ip.ip}/${
         <h3>Custom Interface Configuration</h3>
         <div id="customIpContainer"></div>
         <button type="button" onclick="addCustomIpRow()">Add Interface</button><br><br>
+        <h3>Custom Address Objects</h3>
+        <div id="customAddressContainer"></div>
+        <button type="button" onclick="addCustomAddressRow()">Add Address</button><br><br>
+        <h3>Custom Service Objects</h3>
+        <div id="customServiceContainer"></div>
+        <button type="button" onclick="addCustomServiceRow()">Add Service</button><br><br>
         <button type="submit">Generate Scripts</button>
     </form>
 </body>
