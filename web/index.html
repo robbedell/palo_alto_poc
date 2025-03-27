@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Palo Alto Firewall Automation</title>
+    <script>
+        function generateScripts() {
+            const firewallIp = document.getElementById("firewallIp").value;
+            const apiKey = document.getElementById("apiKey").value;
+
+            if (!firewallIp || !apiKey) {
+                alert("Please provide all required inputs.");
+                return;
+            }
+
+            const pythonScript = `
+import requests
+import xml.etree.ElementTree as ET
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Palo Alto Firewall details
+firewall_ip = '${firewallIp}'
+api_key = '${apiKey}'
+
+# Function to send requests to the firewall
+def send_request(endpoint, params):
+    url = f"https://{firewall_ip}/api/"
+    params['key'] = api_key
+    try:
+        response = requests.get(url, params=params, verify=False)
+        response.raise_for_status()  # Raise HTTPError for bad responses
+        return response.text
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Request to {url} failed: {e}")
+        return None
+
+# Function to check response success
+def is_success(response):
+    if response and 'success' in response:
+        return True
+    return False
+
+# Configure interfaces 1-4 as Layer 3 with DHCP
+def configure_interfaces():
+    for interface_id in range(1, 5):
+        interface_name = f'ethernet1/{interface_id}'
+        logging.info(f"Configuring interface {interface_name}...")
+
+        # Set interface to Layer 3
+        set_interface_url = f"/config/devices/entry[@name='localhost.localdomain']/network/interface/ethernet/entry[@name='{interface_name}']/layer3"
+        set_interface_params = {
+            'type': 'config',
+            'action': 'set',
+            'xpath': set_interface_url,
+            'element': '<layer3><interface>layer3</interface><dhcp-client><create-default-route>no</create-default-route></dhcp-client></layer3>'
+        }
+
+        # Enable DHCP client
+        dhcp_client_url = f"{set_interface_url}/dhcp-client"
+        dhcp_client_params = {
+            'type': 'config',
+            'action': 'set',
+            'xpath': dhcp_client_url,
+            'element': '<dhcp-client><enable>yes</enable></dhcp-client>'
+        }
+
+        # Sending requests to configure the interface
+        response_set = send_request(set_interface_url, set_interface_params)
+        response_dhcp = send_request(dhcp_client_url, dhcp_client_params)
+
+        # Check for success
+        if is_success(response_set) and is_success(response_dhcp):
+            logging.info(f"Interface {interface_name} configured successfully.")
+        else:
+            logging.error(f"Failed to configure Interface {interface_name}.")
+
+# Add virtual routers
+def add_virtual_routers():
+    virtual_routers = ['trust', 'untrust', 'vpn', 'webtier']
+    for vr_name in virtual_routers:
+        logging.info(f"Adding virtual router {vr_name}...")
+        vr_xpath = f"/config/devices/entry[@name='localhost.localdomain']/network/virtual-router/entry[@name='{vr_name}']"
+        vr_element = f"<entry name='{vr_name}'></entry>"
+        vr_params = {
+            'type': 'config',
+            'action': 'set',
+            'xpath': vr_xpath,
+            'element': vr_element
+        }
+
+        # Sending request to add the virtual router
+        response_vr = send_request(vr_xpath, vr_params)
+
+        # Check for success
+        if is_success(response_vr):
+            logging.info(f"Virtual router {vr_name} added successfully.")
+        else:
+            logging.error(f"Failed to add virtual router {vr_name}.")
+
+# Add POC Any/Any security policy for testing
+def add_security_policy():
+    policy_name = "POC_Any_Any_premigrate"
+    logging.info(f"Adding security policy {policy_name}...")
+    policy_xpath = f"/config/devices/entry[@name='localhost.localdomain']/rulebase/security/rules/entry[@name='{policy_name}']"
+    policy_element = f"""
+    <entry name="{policy_name}">
+        <from><member>any</member></from>
+        <to><member>any</member></to>
+        <source><member>any</member></source>
+        <destination><member>any</member></destination>
+        <service><member>any</member></service>
+        <application><member>any</member></application>
+        <action>allow</action>
+        <tag><member>POC-DELETE</member></tag>
+    </entry>
+    """
+    policy_params = {
+        'type': 'config',
+        'action': 'set',
+        'xpath': policy_xpath,
+        'element': policy_element
+    }
+
+    # Sending request to add the policy
+    response_policy = send_request(policy_xpath, policy_params)
+
+    # Check for success
+    if is_success(response_policy):
+        logging.info(f"Policy {policy_name} added successfully.")
+    else:
+        logging.error(f"Failed to add policy {policy_name}.")
+
+# Main execution
+if __name__ == "__main__":
+    logging.info("Starting configuration...")
+    configure_interfaces()
+    add_virtual_routers()
+    add_security_policy()
+    logging.info("Configuration completed.")
+            `;
+
+            const terraformScript = `
+provider "panos" {
+  hostname = "${firewallIp}"
+  api_key  = "${apiKey}"
+}
+
+resource "panos_interface" "ethernet" {
+  for_each = toset(["ethernet1/1", "ethernet1/2", "ethernet1/3", "ethernet1/4"])
+
+  name = each.key
+  mode = "layer3"
+
+  dhcp_client {
+    enable = true
+    create_default_route = false
+  }
+}
+
+resource "panos_virtual_router" "routers" {
+  for_each = toset(["trust", "untrust", "vpn", "webtier"])
+
+  name = each.key
+}
+
+resource "panos_security_rule" "poc_any_any" {
+  name          = "POC_Any_Any_premigrate"
+  from_zones    = ["any"]
+  to_zones      = ["any"]
+  source_addresses = ["any"]
+  destination_addresses = ["any"]
+  applications  = ["any"]
+  services      = ["any"]
+  action        = "allow"
+  tags          = ["POC-DELETE"]
+}
+            `;
+
+            const ansiblePlaybook = `
+---
+- name: Configure Palo Alto Firewall
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Configure interfaces
+      panos_interface:
+        provider:
+          ip_address: "${firewallIp}"
+          api_key: "${apiKey}"
+        name: "{{ item }}"
+        mode: "layer3"
+        dhcp_client:
+          enable: true
+          create_default_route: false
+      loop:
+        - "ethernet1/1"
+        - "ethernet1/2"
+        - "ethernet1/3"
+        - "ethernet1/4"
+
+    - name: Add virtual routers
+      panos_virtual_router:
+        provider:
+          ip_address: "${firewallIp}"
+          api_key: "${apiKey}"
+        name: "{{ item }}"
+      loop:
+        - "trust"
+        - "untrust"
+        - "vpn"
+        - "webtier"
+
+    - name: Add security policy
+      panos_security_rule:
+        provider:
+          ip_address: "${firewallIp}"
+          api_key: "${apiKey}"
+        rule_name: "POC_Any_Any_premigrate"
+        from_zone: ["any"]
+        to_zone: ["any"]
+        source: ["any"]
+        destination: ["any"]
+        application: ["any"]
+        service: ["any"]
+        action: "allow"
+        tag: ["POC-DELETE"]
+            `;
+
+            downloadFile("east-fw-config.py", pythonScript);
+            downloadFile("palo_alto_firewall.tf", terraformScript);
+            downloadFile("ansible_playbook.yml", ansiblePlaybook);
+        }
+
+        function downloadFile(filename, content) {
+            const blob = new Blob([content], { type: "text/plain" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+        }
+    </script>
+</head>
+<body>
+    <h1>Palo Alto Firewall Automation</h1>
+    <p>Fill in the required information below to generate the automation scripts:</p>
+    <form onsubmit="event.preventDefault(); generateScripts();">
+        <label for="firewallIp">Firewall Management IP:</label><br>
+        <input type="text" id="firewallIp" name="firewallIp" required><br><br>
+        <label for="apiKey">API Key:</label><br>
+        <input type="text" id="apiKey" name="apiKey" required><br><br>
+        <button type="submit">Generate Scripts</button>
+    </form>
+</body>
+</html>

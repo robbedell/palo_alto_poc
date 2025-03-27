@@ -4,7 +4,7 @@ Palo Alto Firewall / Panorama Automations
 
 ## Overview
 
-This repository contains automation scripts for configuring Palo Alto Firewalls using Python, Terraform, and Ansible. These scripts help streamline the setup of interfaces, virtual routers, security policies, and other configurations.
+This repository contains automation scripts for configuring Palo Alto Firewalls using Python, Terraform, and Ansible. Additionally, a webpage is provided to generate these scripts dynamically based on user inputs.
 
 ## Prerequisites
 
@@ -24,6 +24,17 @@ This repository contains automation scripts for configuring Palo Alto Firewalls 
 
 4. **Ansible**:
    - Install Ansible. Refer to the [Ansible Installation Guide](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html).
+
+## Webpage for Script Generation
+
+A webpage is included in the `web` folder to dynamically generate the automation scripts.
+
+### Usage:
+1. Open the `index.html` file in the `web` folder in any modern web browser.
+2. Enter the required information:
+   - **Firewall Management IP**: The management IP of your firewall.
+   - **API Key**: The API key generated from the firewall.
+3. Click the "Generate Scripts" button to download the Python, Terraform, and Ansible scripts pre-filled with your inputs.
 
 ## Scripts Overview
 
