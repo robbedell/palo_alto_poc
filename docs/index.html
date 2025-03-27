@@ -113,31 +113,6 @@
             flex: 2;
             min-width: 300px;
         }
-        .download-section {
-            flex: 1;
-            min-width: 200px;
-            background-color: #1e1e1e;
-            color: #f4f4f4;
-            padding: 1rem;
-            border-radius: 8px;
-        }
-        .download-section h3 {
-            text-align: center;
-            margin-bottom: 1rem;
-        }
-        .download-item {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 1rem;
-            cursor: pointer;
-        }
-        .download-item i {
-            font-size: 2rem;
-        }
-        .download-item:hover {
-            color: #0078d7;
-        }
     </style>
     <script>
         let includeDefaults = true; // Flag to include or exclude default values
@@ -306,11 +281,11 @@
                     .replace(/ip_address: .*/, `ip_address: "${firewallIp}"`)
                     .replace(/api_key: .*/, `api_key: "${apiKey}"`);
 
-                document.getElementById("downloadPython").onclick = () => downloadFile("east-fw-config.py", updatedPythonScript);
-                document.getElementById("downloadTerraform").onclick = () => downloadFile("palo_alto_firewall.tf", updatedTerraformScript);
-                document.getElementById("downloadAnsible").onclick = () => downloadFile("ansible_playbook.yml", updatedAnsibleScript);
+                downloadFile("east-fw-config.py", updatedPythonScript);
+                downloadFile("palo_alto_firewall.tf", updatedTerraformScript);
+                downloadFile("ansible_playbook.yml", updatedAnsibleScript);
 
-                alert("Scripts generated successfully!");
+                alert("Scripts generated and downloaded successfully!");
             } catch (error) {
                 console.error("Error generating scripts:", error);
             }
@@ -387,18 +362,6 @@
                     <button type="button" class="remove-defaults" onclick="removeAllDefaults()">Remove All Defaults</button>
                     <button type="submit">Generate Scripts</button>
                 </form>
-            </div>
-            <div class="download-section">
-                <h3>Download Scripts</h3>
-                <div class="download-item" id="downloadPython">
-                    <i class="fas fa-file-code"></i> Python Script
-                </div>
-                <div class="download-item" id="downloadTerraform">
-                    <i class="fas fa-file-alt"></i> Terraform Script
-                </div>
-                <div class="download-item" id="downloadAnsible">
-                    <i class="fas fa-file"></i> Ansible Playbook
-                </div>
             </div>
         </div>
     </main>
