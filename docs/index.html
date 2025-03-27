@@ -9,28 +9,14 @@
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
-            background-color: #121212;
-            color: #f4f4f4;
-            transition: background-color 0.3s, color 0.3s;
-        }
-        .dark-mode {
-            background-color: #121212;
-            color: #f4f4f4;
+            background-color: #ffffff;
+            color: #000000;
         }
         header {
             background-color: #0078d7;
             color: white;
             padding: 1rem;
             text-align: center;
-            position: relative;
-        }
-        .dark-mode-toggle {
-            position: absolute;
-            top: 1rem;
-            right: 1rem;
-            cursor: pointer;
-            font-size: 1.5rem;
-            color: white;
         }
         main {
             padding: 2rem;
@@ -77,58 +63,12 @@
         }
         .explanation {
             font-size: 0.9rem;
-            color: #bbb;
+            color: #555;
             margin-bottom: 0.5rem;
-        }
-        pre {
-            background-color: #1e1e1e;
-            color: #f4f4f4;
-            padding: 1rem;
-            border-radius: 4px;
-            overflow-x: auto;
-            position: relative;
-        }
-        .refresh-icon {
-            position: absolute;
-            top: 0.5rem;
-            right: 0.5rem;
-            cursor: pointer;
-            font-size: 1.2rem;
-            color: #f4f4f4;
-        }
-        .remove-defaults {
-            margin-top: 1rem;
-            background-color: #d9534f;
-            color: white;
-        }
-        .remove-defaults:hover {
-            background-color: #c9302c;
-        }
-        .container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 2rem;
-        }
-        .form-section {
-            flex: 2;
-            min-width: 300px;
         }
     </style>
     <script>
-        let includeDefaults = true; // Flag to include or exclude default values
-
-        function toggleDarkMode() {
-            const body = document.body;
-            const icon = document.getElementById("darkModeIcon");
-
-            body.classList.toggle('dark-mode');
-            icon.textContent = body.classList.contains('dark-mode') ? '🌙' : '☀️';
-        }
-
-        document.addEventListener("DOMContentLoaded", () => {
-            document.body.classList.add("dark-mode");
-            document.getElementById("darkModeIcon").textContent = '🌙';
-        });
+        let includeDefaults = true;
 
         function validateInput(input, regex, errorMessage) {
             const errorElement = input.nextElementSibling;
@@ -177,7 +117,7 @@
         }
 
         function removeAllDefaults() {
-            includeDefaults = false; // Exclude default values
+            includeDefaults = false;
             document.getElementById("customIpContainer").innerHTML = "";
             document.getElementById("customAddressContainer").innerHTML = "";
             document.getElementById("customServiceContainer").innerHTML = "";
@@ -186,9 +126,9 @@
 
         async function fetchDefaultScripts() {
             try {
-                const pythonResponse = await fetch('../east-fw-config.py');
-                const terraformResponse = await fetch('../palo_alto_firewall.tf');
-                const ansibleResponse = await fetch('../ansible_playbook.yml');
+                const pythonResponse = await fetch('./east-fw-config.py');
+                const terraformResponse = await fetch('./palo_alto_firewall.tf');
+                const ansibleResponse = await fetch('./ansible_playbook.yml');
 
                 if (!pythonResponse.ok || !terraformResponse.ok || !ansibleResponse.ok) {
                     throw new Error("Failed to fetch default scripts.");
@@ -303,7 +243,6 @@
 <body>
     <header>
         <h1>Palo Alto Firewall Automation</h1>
-        <div class="dark-mode-toggle" id="darkModeIcon" onclick="toggleDarkMode()">☀️</div>
     </header>
     <main>
         <div class="container">
