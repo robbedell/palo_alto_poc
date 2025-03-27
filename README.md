@@ -4,7 +4,7 @@ Palo Alto Firewall / Panorama Automations
 
 ## Overview
 
-This repository contains automation scripts for configuring Palo Alto Firewalls using Python, Terraform, and Ansible. Additionally, a webpage is provided to generate these scripts dynamically based on user inputs.
+This repository contains automation scripts for configuring Palo Alto Firewalls using Python, Terraform, and Ansible. Additionally, a webpage is provided to dynamically generate these scripts based on user inputs, including custom interface configurations.
 
 ## Prerequisites
 
@@ -27,27 +27,36 @@ This repository contains automation scripts for configuring Palo Alto Firewalls 
 
 ## Webpage for Script Generation
 
-A webpage is included in the `web` folder to dynamically generate the automation scripts.
+A webpage is included in the `docs` folder to dynamically generate the automation scripts.
+
+### Features:
+- **Firewall Management IP and API Key**: Input fields to specify the firewall's management IP and API key.
+- **Custom Interface Configuration**: Add custom IP addresses and subnets for specific interfaces.
 
 ### Usage:
-1. Open the `index.html` file in the `web` folder in any modern web browser.
+1. Open the `index.html` file in the `docs` folder in any modern web browser.
 2. Enter the required information:
    - **Firewall Management IP**: The management IP of your firewall.
    - **API Key**: The API key generated from the firewall.
-3. Click the "Generate Scripts" button to download the Python, Terraform, and Ansible scripts pre-filled with your inputs.
+3. (Optional) Add custom interface configurations:
+   - Click the "Add Interface" button.
+   - Specify the interface name (e.g., `ethernet1/1`), IP address, and subnet mask.
+   - Repeat for additional interfaces as needed.
+4. Click the "Generate Scripts" button to download the Python, Terraform, and Ansible scripts pre-filled with your inputs.
 
 ## Scripts Overview
 
 ### 1. Python Script: `east-fw-config.py`
 
 This script configures:
-- Interfaces (`ethernet1/1` to `ethernet1/4`) as Layer 3 with DHCP enabled.
+- Interfaces (`ethernet1/1` to `ethernet1/4`) as Layer 3 with DHCP enabled or custom IPs and subnets.
 - Virtual routers (`trust`, `untrust`, `vpn`, `webtier`).
 - A security policy (`POC_Any_Any_premigrate`) allowing any-to-any traffic.
 
 #### Usage:
 1. Update the `firewall_ip` and `api_key` variables in the script.
-2. Run the script:
+2. (Optional) Update the `custom_ips` dictionary to specify custom IPs and subnets for interfaces.
+3. Run the script:
    ```bash
    python east-fw-config.py
    ```
@@ -58,11 +67,12 @@ This script uses Terraform to configure the firewall with the same settings as t
 
 #### Usage:
 1. Update the `hostname` and `api_key` in the `provider` block.
-2. Initialize Terraform:
+2. (Optional) Update the `ip` and `subnet` values in the `panos_interface` resource for custom interface configurations.
+3. Initialize Terraform:
    ```bash
    terraform init
    ```
-3. Apply the configuration:
+4. Apply the configuration:
    ```bash
    terraform apply
    ```
@@ -73,10 +83,20 @@ This playbook configures the firewall using Ansible.
 
 #### Usage:
 1. Update the `ip_address` and `api_key` in the `provider` sections.
-2. Run the playbook:
+2. (Optional) Update the `loop` section to specify custom IPs and subnets for interfaces.
+3. Run the playbook:
    ```bash
    ansible-playbook ansible_playbook.yml
    ```
+
+## Custom Interface Configuration
+
+You can configure interfaces with custom IPs and subnets by modifying the respective script:
+- **Python**: Update the `custom_ips` dictionary in `east-fw-config.py`.
+- **Terraform**: Update the `ip` and `subnet` values in the `panos_interface` resource.
+- **Ansible**: Update the `loop` section in `ansible_playbook.yml` with the desired IPs and subnets.
+
+For interfaces without custom IPs, DHCP will be enabled by default.
 
 ## Required User Inputs
 

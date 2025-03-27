@@ -27,11 +27,33 @@ def is_success(response):
         return True
     return False
 
-# Configure interfaces 1-4 as Layer 3 with DHCP
-def configure_interfaces():
+# Configure interfaces 1-4 as Layer 3 with DHCP or custom IP and subnet
+def configure_interfaces(custom_ips=None):
     for interface_id in range(1, 5):
         interface_name = f'ethernet1/{interface_id}'
         logging.info(f"Configuring interface {interface_name}...")
+
+        # Determine if custom IP and subnet are provided
+        if custom_ips and interface_name in custom_ips:
+            ip_address = custom_ips[interface_name]['ip']
+            subnet_mask = custom_ips[interface_name]['subnet']
+            element = f"""
+            <layer3>
+                <ip>
+                    <entry name="{ip_address}/{subnet_mask}"/>
+                </ip>
+            </layer3>
+            """
+        else:
+            # Default to DHCP
+            element = """
+            <layer3>
+                <dhcp-client>
+                    <enable>yes</enable>
+                    <create-default-route>no</create-default-route>
+                </dhcp-client>
+            </layer3>
+            """
 
         # Set interface to Layer 3
         set_interface_url = f"/config/devices/entry[@name='localhost.localdomain']/network/interface/ethernet/entry[@name='{interface_name}']/layer3"
@@ -39,24 +61,14 @@ def configure_interfaces():
             'type': 'config',
             'action': 'set',
             'xpath': set_interface_url,
-            'element': '<layer3><interface>layer3</interface><dhcp-client><create-default-route>no</create-default-route></dhcp-client></layer3>'
+            'element': element
         }
 
-        # Enable DHCP client
-        dhcp_client_url = f"{set_interface_url}/dhcp-client"
-        dhcp_client_params = {
-            'type': 'config',
-            'action': 'set',
-            'xpath': dhcp_client_url,
-            'element': '<dhcp-client><enable>yes</enable></dhcp-client>'
-        }
-
-        # Sending requests to configure the interface
+        # Sending request to configure the interface
         response_set = send_request(set_interface_url, set_interface_params)
-        response_dhcp = send_request(dhcp_client_url, dhcp_client_params)
 
         # Check for success
-        if is_success(response_set) and is_success(response_dhcp):
+        if is_success(response_set):
             logging.info(f"Interface {interface_name} configured successfully.")
         else:
             logging.error(f"Failed to configure Interface {interface_name}.")
@@ -120,7 +132,11 @@ def add_security_policy():
 # Main execution
 if __name__ == "__main__":
     logging.info("Starting configuration...")
-    configure_interfaces()
+    custom_ips = {
+        "ethernet1/1": {"ip": "192.168.10.1", "subnet": "24"},
+        "ethernet1/2": {"ip": "192.168.20.1", "subnet": "24"}
+    }
+    configure_interfaces(custom_ips=custom_ips)
     add_virtual_routers()
     add_security_policy()
     logging.info("Configuration completed.")

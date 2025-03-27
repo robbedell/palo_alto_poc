@@ -9,16 +9,17 @@
         provider:
           ip_address: "192.168.1.1"  # Replace with your firewall's management IP
           api_key: "YOUR_API_KEY"   # Replace with your valid API key
-        name: "{{ item }}"
+        name: "{{ item.name }}"
         mode: "layer3"
+        ip: "{{ item.ip }}"
         dhcp_client:
-          enable: true
+          enable: "{{ item.dhcp }}"
           create_default_route: false
       loop:
-        - "ethernet1/1"
-        - "ethernet1/2"
-        - "ethernet1/3"
-        - "ethernet1/4"
+        - { name: "ethernet1/1", ip: "192.168.10.1/24", dhcp: false }
+        - { name: "ethernet1/2", ip: "192.168.20.1/24", dhcp: false }
+        - { name: "ethernet1/3", ip: null, dhcp: true }
+        - { name: "ethernet1/4", ip: null, dhcp: true }
 
     - name: Add virtual routers
       panos_virtual_router:

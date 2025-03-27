@@ -9,6 +9,17 @@
             const firewallIp = document.getElementById("firewallIp").value;
             const apiKey = document.getElementById("apiKey").value;
 
+            const customIps = [];
+            document.querySelectorAll(".custom-ip-row").forEach(row => {
+                const interfaceName = row.querySelector(".interface-name").value;
+                const ip = row.querySelector(".ip-address").value;
+                const subnet = row.querySelector(".subnet-mask").value;
+
+                if (interfaceName && ip && subnet) {
+                    customIps.push({ interfaceName, ip, subnet });
+                }
+            });
+
             if (!firewallIp || !apiKey) {
                 alert("Please provide all required inputs.");
                 return;
@@ -25,6 +36,10 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # Palo Alto Firewall details
 firewall_ip = '${firewallIp}'
 api_key = '${apiKey}'
+
+custom_ips = {
+${customIps.map(ip => `    "${ip.interfaceName}": {"ip": "${ip.ip}", "subnet": "${ip.subnet}"}`).join(",\n")}
+}
 
 # Function to send requests to the firewall
 def send_request(endpoint, params):
@@ -45,7 +60,7 @@ def is_success(response):
     return False
 
 # Configure interfaces 1-4 as Layer 3 with DHCP
-def configure_interfaces():
+def configure_interfaces(custom_ips=None):
     for interface_id in range(1, 5):
         interface_name = f'ethernet1/{interface_id}'
         logging.info(f"Configuring interface {interface_name}...")
@@ -137,7 +152,7 @@ def add_security_policy():
 # Main execution
 if __name__ == "__main__":
     logging.info("Starting configuration...")
-    configure_interfaces()
+    configure_interfaces(custom_ips=custom_ips)
     add_virtual_routers()
     add_security_policy()
     logging.info("Configuration completed.")
@@ -155,8 +170,18 @@ resource "panos_interface" "ethernet" {
   name = each.key
   mode = "layer3"
 
+  dynamic "ip" {
+    for_each = lookup({
+${customIps.map(ip => `      "${ip.interfaceName}" = { ip = "${ip.ip}", subnet = "${ip.subnet}" }`).join(",\n")}
+    }, each.key, {})
+
+    content {
+      address = "${ip.value.ip}/${ip.value.subnet}"
+    }
+  }
+
   dhcp_client {
-    enable = true
+    enable = ip.value == null
     create_default_route = false
   }
 }
@@ -181,7 +206,6 @@ resource "panos_security_rule" "poc_any_any" {
             `;
 
             const ansiblePlaybook = `
----
 - name: Configure Palo Alto Firewall
   hosts: localhost
   connection: local
@@ -192,16 +216,16 @@ resource "panos_security_rule" "poc_any_any" {
         provider:
           ip_address: "${firewallIp}"
           api_key: "${apiKey}"
-        name: "{{ item }}"
+        name: "{{ item.name }}"
         mode: "layer3"
+        ip: "{{ item.ip }}"
         dhcp_client:
-          enable: true
+          enable: "{{ item.dhcp }}"
           create_default_route: false
       loop:
-        - "ethernet1/1"
-        - "ethernet1/2"
-        - "ethernet1/3"
-        - "ethernet1/4"
+${customIps.map(ip => `        - { name: "${ip.interfaceName}", ip: "${ip.ip}/${ip.subnet}", dhcp: false }`).join("\n")}
+        - { name: "ethernet1/3", ip: null, dhcp: true }
+        - { name: "ethernet1/4", ip: null, dhcp: true }
 
     - name: Add virtual routers
       panos_virtual_router:
@@ -243,6 +267,19 @@ resource "panos_security_rule" "poc_any_any" {
             link.download = filename;
             link.click();
         }
+
+        function addCustomIpRow() {
+            const container = document.getElementById("customIpContainer");
+            const row = document.createElement("div");
+            row.className = "custom-ip-row";
+            row.innerHTML = `
+                <input type="text" class="interface-name" placeholder="Interface Name (e.g., ethernet1/1)" required>
+                <input type="text" class="ip-address" placeholder="IP Address (e.g., 192.168.10.1)" required>
+                <input type="text" class="subnet-mask" placeholder="Subnet Mask (e.g., 24)" required>
+                <button type="button" onclick="this.parentElement.remove()">Remove</button>
+            `;
+            container.appendChild(row);
+        }
     </script>
 </head>
 <body>
@@ -253,6 +290,9 @@ resource "panos_security_rule" "poc_any_any" {
         <input type="text" id="firewallIp" name="firewallIp" required><br><br>
         <label for="apiKey">API Key:</label><br>
         <input type="text" id="apiKey" name="apiKey" required><br><br>
+        <h3>Custom Interface Configuration</h3>
+        <div id="customIpContainer"></div>
+        <button type="button" onclick="addCustomIpRow()">Add Interface</button><br><br>
         <button type="submit">Generate Scripts</button>
     </form>
 </body>

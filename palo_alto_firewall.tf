@@ -9,8 +9,19 @@ resource "panos_interface" "ethernet" {
   name = each.key
   mode = "layer3"
 
+  dynamic "ip" {
+    for_each = lookup({
+      "ethernet1/1" = { ip = "192.168.10.1", subnet = "24" },
+      "ethernet1/2" = { ip = "192.168.20.1", subnet = "24" }
+    }, each.key, {})
+
+    content {
+      address = "${ip.value.ip}/${ip.value.subnet}"
+    }
+  }
+
   dhcp_client {
-    enable = true
+    enable = ip.value == null
     create_default_route = false
   }
 }
