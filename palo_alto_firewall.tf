@@ -10,10 +10,10 @@ resource "panos_interface" "ethernet" {
   mode = "layer3"
 
   dynamic "ip" {
-    for_each = lookup({
-      "ethernet1/1" = { ip = "192.168.10.1", subnet = "24" },
-      "ethernet1/2" = { ip = "192.168.20.1", subnet = "24" }
-    }, each.key, {})
+    for_each = lookup(${JSON.stringify(customIps.reduce((acc, ip) => {
+        acc[ip.interfaceName] = { ip: ip.ip, subnet: ip.subnet };
+        return acc;
+    }, {}), null, 4)}, each.key, {})
 
     content {
       address = "${ip.value.ip}/${ip.value.subnet}"

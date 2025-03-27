@@ -1,5 +1,4 @@
 import requests
-import xml.etree.ElementTree as ET
 import logging
 
 # Configure logging
@@ -23,9 +22,7 @@ def send_request(endpoint, params):
 
 # Function to check response success
 def is_success(response):
-    if response and 'success' in response:
-        return True
-    return False
+    return response and '<result>success</result>' in response
 
 # Configure interfaces 1-4 as Layer 3 with DHCP or custom IP and subnet
 def configure_interfaces(custom_ips=None):
@@ -33,8 +30,18 @@ def configure_interfaces(custom_ips=None):
         interface_name = f'ethernet1/{interface_id}'
         logging.info(f"Configuring interface {interface_name}...")
 
-        # Determine if custom IP and subnet are provided
-        if custom_ips and interface_name in custom_ips:
+        # Default to DHCP if no custom IP is provided
+        if not custom_ips or interface_name not in custom_ips:
+            element = """
+            <layer3>
+                <dhcp-client>
+                    <enable>yes</enable>
+                    <create-default-route>no</create-default-route>
+                </dhcp-client>
+            </layer3>
+            """
+        else:
+            # Use custom IP and subnet
             ip_address = custom_ips[interface_name]['ip']
             subnet_mask = custom_ips[interface_name]['subnet']
             element = f"""
@@ -42,16 +49,6 @@ def configure_interfaces(custom_ips=None):
                 <ip>
                     <entry name="{ip_address}/{subnet_mask}"/>
                 </ip>
-            </layer3>
-            """
-        else:
-            # Default to DHCP
-            element = """
-            <layer3>
-                <dhcp-client>
-                    <enable>yes</enable>
-                    <create-default-route>no</create-default-route>
-                </dhcp-client>
             </layer3>
             """
 
