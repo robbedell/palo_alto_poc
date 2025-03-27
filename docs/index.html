@@ -130,8 +130,14 @@
                 const terraformResponse = await fetch('./palo_alto_firewall.tf');
                 const ansibleResponse = await fetch('./ansible_playbook.yml');
 
-                if (!pythonResponse.ok || !terraformResponse.ok || !ansibleResponse.ok) {
-                    throw new Error("Failed to fetch default scripts.");
+                if (!pythonResponse.ok) {
+                    throw new Error("Failed to fetch Python script: " + pythonResponse.statusText);
+                }
+                if (!terraformResponse.ok) {
+                    throw new Error("Failed to fetch Terraform script: " + terraformResponse.statusText);
+                }
+                if (!ansibleResponse.ok) {
+                    throw new Error("Failed to fetch Ansible script: " + ansibleResponse.statusText);
                 }
 
                 const pythonScript = await pythonResponse.text();
@@ -141,6 +147,7 @@
                 return { pythonScript, terraformScript, ansibleScript };
             } catch (error) {
                 alert("Error fetching default scripts: " + error.message);
+                console.error("Error fetching default scripts:", error);
                 throw error;
             }
         }
