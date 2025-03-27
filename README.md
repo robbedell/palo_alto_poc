@@ -30,19 +30,21 @@ This repository contains automation scripts for configuring Palo Alto Firewalls 
 A webpage is included in the `docs` folder to dynamically generate the automation scripts.
 
 ### Features:
-- **Firewall Management IP and API Key**: Input fields to specify the firewall's management IP and API key.
-- **Custom Interface Configuration**: Add custom IP addresses and subnets for specific interfaces.
+- **Dark Mode**: Toggle between light and dark modes for better visibility.
+- **Error Checking**: Real-time validation for input fields to ensure correct data entry.
+- **Custom Configurations**: Add custom interface configurations, address objects, and service objects.
 
 ### Usage:
 1. Open the `index.html` file in the `docs` folder in any modern web browser.
 2. Enter the required information:
-   - **Firewall Management IP**: The management IP of your firewall.
+   - **Firewall Management IP**: The management IP of your firewall (e.g., `192.168.1.1`).
    - **API Key**: The API key generated from the firewall.
-3. (Optional) Add custom interface configurations:
-   - Click the "Add Interface" button.
-   - Specify the interface name (e.g., `ethernet1/1`), IP address, and subnet mask.
-   - Repeat for additional interfaces as needed.
-4. Click the "Generate Scripts" button to download the Python, Terraform, and Ansible scripts pre-filled with your inputs.
+3. Add custom configurations:
+   - **Interfaces**: Click "Add Interface" and specify the interface name, IP address, and subnet mask.
+   - **Address Objects**: Click "Add Address" and specify the name, IP address, and description.
+   - **Service Objects**: Click "Add Service" and specify the name, protocol, port, and description.
+4. Click "Generate Scripts" to download the Python, Terraform, and Ansible scripts pre-filled with your inputs.
+5. Use the "Toggle Dark Mode" button to switch between light and dark themes.
 
 ## Scripts Overview
 

@@ -4,10 +4,124 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Palo Alto Firewall Automation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            color: #333;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .dark-mode {
+            background-color: #121212;
+            color: #f4f4f4;
+        }
+        header {
+            background-color: #0078d7;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+        }
+        main {
+            padding: 2rem;
+            max-width: 800px;
+            margin: auto;
+        }
+        label {
+            font-weight: bold;
+        }
+        input, button {
+            margin: 0.5rem 0;
+            padding: 0.5rem;
+            width: 100%;
+            max-width: 400px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #0078d7;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #005bb5;
+        }
+        .row {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .row input {
+            flex: 1;
+        }
+        .dark-mode button {
+            background-color: #333;
+            color: white;
+        }
+        .dark-mode button:hover {
+            background-color: #555;
+        }
+        .toggle-dark-mode {
+            margin-top: 1rem;
+            cursor: pointer;
+            text-align: center;
+        }
+        .error {
+            color: red;
+            font-size: 0.9rem;
+        }
+    </style>
     <script>
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+        }
+
+        function validateInput(input, regex, errorMessage) {
+            const errorElement = input.nextElementSibling;
+            if (!regex.test(input.value)) {
+                errorElement.textContent = errorMessage;
+                return false;
+            }
+            errorElement.textContent = '';
+            return true;
+        }
+
+        function addCustomRow(containerId, fields) {
+            const container = document.getElementById(containerId);
+            const row = document.createElement("div");
+            row.className = "row";
+            fields.forEach(field => {
+                const input = document.createElement("input");
+                input.type = "text";
+                input.placeholder = field.placeholder;
+                input.className = field.className;
+                input.required = field.required || false;
+                input.oninput = () => validateInput(input, field.regex, field.errorMessage);
+                row.appendChild(input);
+
+                const error = document.createElement("div");
+                error.className = "error";
+                row.appendChild(error);
+            });
+            const removeButton = document.createElement("button");
+            removeButton.type = "button";
+            removeButton.textContent = "Remove";
+            removeButton.onclick = () => row.remove();
+            row.appendChild(removeButton);
+            container.appendChild(row);
+        }
+
         function generateScripts() {
-            const firewallIp = document.getElementById("firewallIp").value;
-            const apiKey = document.getElementById("apiKey").value;
+            const firewallIp = document.getElementById("firewallIp");
+            const apiKey = document.getElementById("apiKey");
+
+            if (!validateInput(firewallIp, /^\d{1,3}(\.\d{1,3}){3}$/, "Invalid IP address") ||
+                !validateInput(apiKey, /^[a-zA-Z0-9]+$/, "Invalid API key")) {
+                alert("Please fix the errors before generating scripts.");
+                return;
+            }
 
             const customIps = [];
             document.querySelectorAll(".custom-ip-row").forEach(row => {
@@ -57,8 +171,8 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Palo Alto Firewall details
-firewall_ip = '${firewallIp}'
-api_key = '${apiKey}'
+firewall_ip = '${firewallIp.value}'
+api_key = '${apiKey.value}'
 
 custom_ips = {
 ${customIps.map(ip => `    "${ip.interfaceName}": {"ip": "${ip.ip}", "subnet": "${ip.subnet}"}`).join(",\n")}
@@ -183,8 +297,8 @@ if __name__ == "__main__":
 
             const terraformScript = `
 provider "panos" {
-  hostname = "${firewallIp}"
-  api_key  = "${apiKey}"
+  hostname = "${firewallIp.value}"
+  api_key  = "${apiKey.value}"
 }
 
 resource "panos_interface" "ethernet" {
@@ -258,8 +372,8 @@ ${customServices.map(svc => `    "${svc.name}" = { protocol = "${svc.protocol}",
     - name: Configure interfaces
       panos_interface:
         provider:
-          ip_address: "${firewallIp}"
-          api_key: "${apiKey}"
+          ip_address: "${firewallIp.value}"
+          api_key: "${apiKey.value}"
         name: "{{ item.name }}"
         mode: "layer3"
         ip: "{{ item.ip }}"
@@ -274,8 +388,8 @@ ${customIps.map(ip => `        - { name: "${ip.interfaceName}", ip: "${ip.ip}/${
     - name: Add virtual routers
       panos_virtual_router:
         provider:
-          ip_address: "${firewallIp}"
-          api_key: "${apiKey}"
+          ip_address: "${firewallIp.value}"
+          api_key: "${apiKey.value}"
         name: "{{ item }}"
       loop:
         - "trust"
@@ -286,8 +400,8 @@ ${customIps.map(ip => `        - { name: "${ip.interfaceName}", ip: "${ip.ip}/${
     - name: Add security policy
       panos_security_rule:
         provider:
-          ip_address: "${firewallIp}"
-          api_key: "${apiKey}"
+          ip_address: "${firewallIp.value}"
+          api_key: "${apiKey.value}"
         rule_name: "POC_Any_Any_premigrate"
         from_zone: ["any"]
         to_zone: ["any"]
@@ -311,66 +425,53 @@ ${customIps.map(ip => `        - { name: "${ip.interfaceName}", ip: "${ip.ip}/${
             link.download = filename;
             link.click();
         }
-
-        function addCustomIpRow() {
-            const container = document.getElementById("customIpContainer");
-            const row = document.createElement("div");
-            row.className = "custom-ip-row";
-            row.innerHTML = `
-                <input type="text" class="interface-name" placeholder="Interface Name (e.g., ethernet1/1)" required>
-                <input type="text" class="ip-address" placeholder="IP Address (e.g., 192.168.10.1)" required>
-                <input type="text" class="subnet-mask" placeholder="Subnet Mask (e.g., 24)" required>
-                <button type="button" onclick="this.parentElement.remove()">Remove</button>
-            `;
-            container.appendChild(row);
-        }
-
-        function addCustomAddressRow() {
-            const container = document.getElementById("customAddressContainer");
-            const row = document.createElement("div");
-            row.className = "custom-address-row";
-            row.innerHTML = `
-                <input type="text" class="address-name" placeholder="Address Name (e.g., web_server)" required>
-                <input type="text" class="address-ip" placeholder="IP Address (e.g., 192.168.30.10)" required>
-                <input type="text" class="address-description" placeholder="Description (e.g., Web Server)">
-                <button type="button" onclick="this.parentElement.remove()">Remove</button>
-            `;
-            container.appendChild(row);
-        }
-
-        function addCustomServiceRow() {
-            const container = document.getElementById("customServiceContainer");
-            const row = document.createElement("div");
-            row.className = "custom-service-row";
-            row.innerHTML = `
-                <input type="text" class="service-name" placeholder="Service Name (e.g., http)" required>
-                <input type="text" class="service-protocol" placeholder="Protocol (e.g., tcp)" required>
-                <input type="text" class="service-port" placeholder="Port (e.g., 80)" required>
-                <input type="text" class="service-description" placeholder="Description (e.g., HTTP Service)">
-                <button type="button" onclick="this.parentElement.remove()">Remove</button>
-            `;
-            container.appendChild(row);
-        }
     </script>
 </head>
 <body>
-    <h1>Palo Alto Firewall Automation</h1>
-    <p>Fill in the required information below to generate the automation scripts:</p>
-    <form onsubmit="event.preventDefault(); generateScripts();">
-        <label for="firewallIp">Firewall Management IP:</label><br>
-        <input type="text" id="firewallIp" name="firewallIp" required><br><br>
-        <label for="apiKey">API Key:</label><br>
-        <input type="text" id="apiKey" name="apiKey" required><br><br>
-        <h3>Custom Interface Configuration</h3>
-        <div id="customIpContainer"></div>
-        <button type="button" onclick="addCustomIpRow()">Add Interface</button><br><br>
-        <h3>Custom Address Objects</h3>
-        <div id="customAddressContainer"></div>
-        <button type="button" onclick="addCustomAddressRow()">Add Address</button><br><br>
-        <h3>Custom Service Objects</h3>
-        <div id="customServiceContainer"></div>
-        <button type="button" onclick="addCustomServiceRow()">Add Service</button><br><br>
-        <button type="submit">Generate Scripts</button>
-    </form>
+    <header>
+        <h1>Palo Alto Firewall Automation</h1>
+    </header>
+    <main>
+        <p>Use this tool to generate Python, Terraform, and Ansible scripts for automating Palo Alto Firewall configurations. Fill in the required fields below and click "Generate Scripts".</p>
+        <form onsubmit="event.preventDefault(); generateScripts();">
+            <label for="firewallIp">Firewall Management IP:</label>
+            <input type="text" id="firewallIp" placeholder="e.g., 192.168.1.1" required>
+            <div class="error"></div>
+
+            <label for="apiKey">API Key:</label>
+            <input type="text" id="apiKey" placeholder="Enter your API key" required>
+            <div class="error"></div>
+
+            <h3>Custom Interface Configuration</h3>
+            <div id="customIpContainer"></div>
+            <button type="button" onclick="addCustomRow('customIpContainer', [
+                { placeholder: 'Interface Name (e.g., ethernet1/1)', className: 'interface-name', regex: /^ethernet\d+\/\d+$/, errorMessage: 'Invalid interface name', required: true },
+                { placeholder: 'IP Address (e.g., 192.168.10.1)', className: 'ip-address', regex: /^\d{1,3}(\.\d{1,3}){3}$/, errorMessage: 'Invalid IP address', required: true },
+                { placeholder: 'Subnet Mask (e.g., 24)', className: 'subnet-mask', regex: /^\d{1,2}$/, errorMessage: 'Invalid subnet mask', required: true }
+            ])">Add Interface</button>
+
+            <h3>Custom Address Objects</h3>
+            <div id="customAddressContainer"></div>
+            <button type="button" onclick="addCustomRow('customAddressContainer', [
+                { placeholder: 'Address Name (e.g., web_server)', className: 'address-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true },
+                { placeholder: 'IP Address (e.g., 192.168.30.10)', className: 'address-ip', regex: /^\d{1,3}(\.\d{1,3}){3}$/, errorMessage: 'Invalid IP address', required: true },
+                { placeholder: 'Description (e.g., Web Server)', className: 'address-description', regex: /^.*$/, errorMessage: '' }
+            ])">Add Address</button>
+
+            <h3>Custom Service Objects</h3>
+            <div id="customServiceContainer"></div>
+            <button type="button" onclick="addCustomRow('customServiceContainer', [
+                { placeholder: 'Service Name (e.g., http)', className: 'service-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true },
+                { placeholder: 'Protocol (e.g., tcp)', className: 'service-protocol', regex: /^(tcp|udp)$/, errorMessage: 'Invalid protocol', required: true },
+                { placeholder: 'Port (e.g., 80)', className: 'service-port', regex: /^\d+$/, errorMessage: 'Invalid port', required: true },
+                { placeholder: 'Description (e.g., HTTP Service)', className: 'service-description', regex: /^.*$/, errorMessage: '' }
+            ])">Add Service</button>
+
+            <button type="submit">Generate Scripts</button>
+        </form>
+        <div class="toggle-dark-mode">
+            <button type="button" onclick="toggleDarkMode()">Toggle Dark Mode</button>
+        </div>
+    </main>
 </body>
 </html>
