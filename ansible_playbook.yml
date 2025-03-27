@@ -1,0 +1,48 @@
+---
+- name: Configure Palo Alto Firewall
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Configure interfaces
+      panos_interface:
+        provider:
+          ip_address: "192.168.1.1"  # Replace with your firewall's management IP
+          api_key: "YOUR_API_KEY"   # Replace with your valid API key
+        name: "{{ item }}"
+        mode: "layer3"
+        dhcp_client:
+          enable: true
+          create_default_route: false
+      loop:
+        - "ethernet1/1"
+        - "ethernet1/2"
+        - "ethernet1/3"
+        - "ethernet1/4"
+
+    - name: Add virtual routers
+      panos_virtual_router:
+        provider:
+          ip_address: "192.168.1.1"
+          api_key: "YOUR_API_KEY"
+        name: "{{ item }}"
+      loop:
+        - "trust"
+        - "untrust"
+        - "vpn"
+        - "webtier"
+
+    - name: Add security policy
+      panos_security_rule:
+        provider:
+          ip_address: "192.168.1.1"
+          api_key: "YOUR_API_KEY"
+        rule_name: "POC_Any_Any_premigrate"
+        from_zone: ["any"]
+        to_zone: ["any"]
+        source: ["any"]
+        destination: ["any"]
+        application: ["any"]
+        service: ["any"]
+        action: "allow"
+        tag: ["POC-DELETE"]
