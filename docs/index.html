@@ -104,13 +104,59 @@
         .remove-defaults:hover {
             background-color: #c9302c;
         }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+        }
+        .form-section {
+            flex: 2;
+            min-width: 300px;
+        }
+        .download-section {
+            flex: 1;
+            min-width: 200px;
+            background-color: #1e1e1e;
+            color: #f4f4f4;
+            padding: 1rem;
+            border-radius: 8px;
+        }
+        .download-section h3 {
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        .download-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            cursor: pointer;
+        }
+        .download-item i {
+            font-size: 2rem;
+        }
+        .download-item:hover {
+            color: #0078d7;
+        }
     </style>
     <script>
+        let includeDefaults = true; // Flag to include or exclude default values
+
         function toggleDarkMode() {
-            document.body.classList.toggle('dark-mode');
+            const body = document.body;
             const icon = document.getElementById("darkModeIcon");
-            icon.textContent = document.body.classList.contains('dark-mode') ? '☀️' : '🌙';
+
+            body.classList.toggle('dark-mode');
+            icon.textContent = body.classList.contains('dark-mode') ? '🌙' : '☀️';
         }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const body = document.body;
+            const icon = document.getElementById("darkModeIcon");
+
+            body.classList.add("dark-mode");
+            icon.textContent = '🌙';
+        });
 
         function validateInput(input, regex, errorMessage) {
             const errorElement = input.nextElementSibling;
@@ -153,17 +199,70 @@
             const removeButton = document.createElement("button");
             removeButton.type = "button";
             removeButton.textContent = "X";
-            removeButton.onclick = () => {
-                row.remove();
-                updateCodeBlocks();
-            };
+            removeButton.onclick = () => row.remove();
             row.appendChild(removeButton);
             container.appendChild(row);
-            updateCodeBlocks();
         }
 
-        function initializeDefaults() {
-            const defaultInterfaces = [
+        function removeAllDefaults() {
+            includeDefaults = false; // Exclude default values
+            document.getElementById("customIpContainer").innerHTML = "";
+            document.getElementById("customAddressContainer").innerHTML = "";
+            document.getElementById("customServiceContainer").innerHTML = "";
+            alert("Default configuration removed. Only custom values will be included in the scripts.");
+        }
+
+        async function fetchDefaultScripts() {
+            const pythonResponse = await fetch('../east-fw-config.py');
+            const terraformResponse = await fetch('../palo_alto_firewall.tf');
+            const ansibleResponse = await fetch('../ansible_playbook.yml');
+
+            const pythonScript = await pythonResponse.text();
+            const terraformScript = await terraformResponse.text();
+            const ansibleScript = await ansibleResponse.text();
+
+            return { pythonScript, terraformScript, ansibleScript };
+        }
+
+        async function generateScripts() {
+            const { pythonScript, terraformScript, ansibleScript } = await fetchDefaultScripts();
+
+            const firewallIp = document.getElementById("firewallIp").value;
+            const apiKey = document.getElementById("apiKey").value;
+            const firewallHostname = document.getElementById("firewallHostname").value || "PANFW01";
+
+            const customIps = [];
+            document.querySelectorAll("#customIpContainer .row").forEach(row => {
+                const interfaceName = row.querySelector(".interface-name").value;
+                const ip = row.querySelector(".ip-address").value;
+                const subnet = row.querySelector(".subnet-mask").value;
+                if (interfaceName) {
+                    customIps.push({ interfaceName, ip, subnet });
+                }
+            });
+
+            const customAddresses = [];
+            document.querySelectorAll("#customAddressContainer .row").forEach(row => {
+                const name = row.querySelector(".address-name").value;
+                const ip = row.querySelector(".address-ip").value;
+                const description = row.querySelector(".address-description").value;
+                if (name) {
+                    customAddresses.push({ name, ip, description });
+                }
+            });
+
+            const customServices = [];
+            document.querySelectorAll("#customServiceContainer .row").forEach(row => {
+                const name = row.querySelector(".service-name").value;
+                const protocol = row.querySelector(".service-protocol").value;
+                const port = row.querySelector(".service-port").value;
+                const description = row.querySelector(".service-description").value;
+                if (name) {
+                    customServices.push({ name, protocol, port, description });
+                }
+            });
+
+            const defaultIps = [
                 { interfaceName: "ethernet1/1", ip: null, subnet: null },
                 { interfaceName: "ethernet1/2", ip: null, subnet: null },
                 { interfaceName: "ethernet1/3", ip: null, subnet: null },
@@ -180,199 +279,32 @@
                 { name: "https", protocol: "tcp", port: "443", description: "HTTPS Service" }
             ];
 
-            // Populate textareas with default values
-            document.getElementById("defaultInterfaces").value = JSON.stringify(defaultInterfaces, null, 2);
-            document.getElementById("defaultAddresses").value = JSON.stringify(defaultAddresses, null, 2);
-            document.getElementById("defaultServices").value = JSON.stringify(defaultServices, null, 2);
+            const ips = includeDefaults ? [...defaultIps, ...customIps] : customIps;
+            const addresses = includeDefaults ? [...defaultAddresses, ...customAddresses] : customAddresses;
+            const services = includeDefaults ? [...defaultServices, ...customServices] : customServices;
+
+            const updatedPythonScript = pythonScript
+                .replace(/firewall_ip = .*/, `firewall_ip = '${firewallIp}'`)
+                .replace(/api_key = .*/, `api_key = '${apiKey}'`)
+                .replace(/firewall_hostname = .*/, `firewall_hostname = '${firewallHostname}'`)
+                .replace(/custom_ips = .*/, `custom_ips = ${JSON.stringify(ips, null, 4)}`)
+                .replace(/custom_addresses = .*/, `custom_addresses = ${JSON.stringify(addresses, null, 4)}`)
+                .replace(/custom_services = .*/, `custom_services = ${JSON.stringify(services, null, 4)}`);
+
+            const updatedTerraformScript = terraformScript
+                .replace(/hostname = .*/, `hostname = "${firewallIp}"`)
+                .replace(/api_key  = .*/, `api_key  = "${apiKey}"`);
+
+            const updatedAnsibleScript = ansibleScript
+                .replace(/ip_address: .*/, `ip_address: "${firewallIp}"`)
+                .replace(/api_key: .*/, `api_key: "${apiKey}"`);
+
+            document.getElementById("downloadPython").onclick = () => downloadFile("east-fw-config.py", updatedPythonScript);
+            document.getElementById("downloadTerraform").onclick = () => downloadFile("palo_alto_firewall.tf", updatedTerraformScript);
+            document.getElementById("downloadAnsible").onclick = () => downloadFile("ansible_playbook.yml", updatedAnsibleScript);
+
+            alert("Scripts generated successfully!");
         }
-
-        function updateCodeBlocks() {
-            const customIps = [];
-            document.querySelectorAll(".custom-ip-row").forEach(row => {
-                const interfaceName = row.querySelector(".interface-name").value;
-                const ip = row.querySelector(".ip-address").value;
-                const subnet = row.querySelector(".subnet-mask").value;
-
-                if (interfaceName) {
-                    customIps.push({ interfaceName, ip, subnet });
-                }
-            });
-
-            const customAddresses = [];
-            document.querySelectorAll(".custom-address-row").forEach(row => {
-                const name = row.querySelector(".address-name").value;
-                const ip = row.querySelector(".address-ip").value;
-                const description = row.querySelector(".address-description").value;
-
-                if (name) {
-                    customAddresses.push({ name, ip, description });
-                }
-            });
-
-            const customServices = [];
-            document.querySelectorAll(".custom-service-row").forEach(row => {
-                const name = row.querySelector(".service-name").value;
-                const protocol = row.querySelector(".service-protocol").value;
-                const port = row.querySelector(".service-port").value;
-                const description = row.querySelector(".service-description").value;
-
-                if (name) {
-                    customServices.push({ name, protocol, port, description });
-                }
-            });
-
-            // Update textareas dynamically
-            document.getElementById("defaultInterfaces").value = JSON.stringify(customIps.length ? customIps : [], null, 2);
-            document.getElementById("defaultAddresses").value = JSON.stringify(customAddresses.length ? customAddresses : [], null, 2);
-            document.getElementById("defaultServices").value = JSON.stringify(customServices.length ? customServices : [], null, 2);
-
-            updateScripts(customIps, customAddresses, customServices);
-        }
-
-        function updateScripts(customIps, customAddresses, customServices) {
-            const firewallIp = document.getElementById("firewallIp").value;
-            const apiKey = document.getElementById("apiKey").value;
-
-            const pythonScript = `
-import requests
-import logging
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-firewall_ip = '${firewallIp}'
-api_key = '${apiKey}'
-
-custom_ips = ${JSON.stringify(customIps, null, 4)}
-custom_addresses = ${JSON.stringify(customAddresses, null, 4)}
-custom_services = ${JSON.stringify(customServices, null, 4)}
-
-# ...existing Python script logic...
-`;
-
-            const terraformScript = `
-provider "panos" {
-  hostname = "${firewallIp}"
-  api_key  = "${apiKey}"
-}
-
-resource "panos_interface" "ethernet" {
-  for_each = toset(${JSON.stringify(customIps.map(ip => ip.interfaceName), null, 4)})
-
-  name = each.key
-  mode = "layer3"
-
-  dynamic "ip" {
-    for_each = lookup(${JSON.stringify(customIps.reduce((acc, ip) => {
-        acc[ip.interfaceName] = { ip: ip.ip, subnet: ip.subnet };
-        return acc;
-    }, {}), null, 4)}, each.key, {})
-
-    content {
-      address = "${ip.value.ip}/${ip.value.subnet}"
-    }
-  }
-
-  dhcp_client {
-    enable = ip.value == null
-    create_default_route = false
-  }
-}
-
-resource "panos_address_object" "custom_addresses" {
-  for_each = ${JSON.stringify(customAddresses.reduce((acc, addr) => {
-        acc[addr.name] = { ip: addr.ip, description: addr.description };
-        return acc;
-    }, {}), null, 4)}
-
-  name        = each.key
-  value       = each.value.ip
-  description = each.value.description
-}
-
-resource "panos_service_object" "custom_services" {
-  for_each = ${JSON.stringify(customServices.reduce((acc, svc) => {
-        acc[svc.name] = { protocol: svc.protocol, port: svc.port, description: svc.description };
-        return acc;
-    }, {}), null, 4)}
-
-  name        = each.key
-  protocol    = each.value.protocol
-  destination_port = each.value.port
-  description = each.value.description
-}
-`;
-
-            const ansiblePlaybook = `
-- name: Configure Palo Alto Firewall
-  hosts: localhost
-  connection: local
-  gather_facts: no
-  tasks:
-    - name: Configure interfaces
-      panos_interface:
-        provider:
-          ip_address: "${firewallIp}"
-          api_key: "${apiKey}"
-        name: "{{ item.name }}"
-        mode: "layer3"
-        ip: "{{ item.ip }}"
-        dhcp_client:
-          enable: "{{ item.dhcp }}"
-          create_default_route: false
-      loop: ${JSON.stringify(customIps.map(ip => ({
-                name: ip.interfaceName,
-                ip: ip.ip ? `${ip.ip}/${ip.subnet}` : null,
-                dhcp: !ip.ip
-            })), null, 4)}
-
-    - name: Add custom address objects
-      panos_address_object:
-        provider:
-          ip_address: "${firewallIp}"
-          api_key: "${apiKey}"
-        name: "{{ item.name }}"
-        value: "{{ item.ip }}"
-        description: "{{ item.description }}"
-      loop: ${JSON.stringify(customAddresses, null, 4)}
-
-    - name: Add custom service objects
-      panos_service_object:
-        provider:
-          ip_address: "${firewallIp}"
-          api_key: "${apiKey}"
-        name: "{{ item.name }}"
-        protocol: "{{ item.protocol }}"
-        destination_port: "{{ item.port }}"
-        description: "{{ item.description }}"
-      loop: ${JSON.stringify(customServices, null, 4)}
-`;
-
-            downloadFile("east-fw-config.py", pythonScript);
-            downloadFile("palo_alto_firewall.tf", terraformScript);
-            downloadFile("ansible_playbook.yml", ansiblePlaybook);
-        }
-
-        function downloadFile(filename, content) {
-            const blob = new Blob([content], { type: "text/plain" });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = filename;
-            link.click();
-        }
-
-        function removeAllDefaults() {
-            document.getElementById("customIpContainer").innerHTML = "";
-            document.getElementById("customAddressContainer").innerHTML = "";
-            document.getElementById("customServiceContainer").innerHTML = "";
-            updateCodeBlocks();
-        }
-
-        // Default to dark mode on page load
-        document.addEventListener("DOMContentLoaded", () => {
-            document.body.classList.add("dark-mode");
-            initializeDefaults();
-            updateCodeBlocks();
-        });
     </script>
 </head>
 <body>
@@ -381,61 +313,76 @@ resource "panos_service_object" "custom_services" {
         <div class="dark-mode-toggle" id="darkModeIcon" onclick="toggleDarkMode()">☀️</div>
     </header>
     <main>
-        <p>Use this tool to generate Python, Terraform, and Ansible scripts for automating Palo Alto Firewall configurations. Fill in the required fields below and click "Generate Scripts".</p>
-        
-        <form onsubmit="event.preventDefault(); updateCodeBlocks();">
-            <label for="firewallIp">Firewall Management IP:</label>
-            <div class="explanation">Enter the management IP address of your Palo Alto Firewall. Default: <code>192.168.1.1</code>.</div>
-            <input type="text" id="firewallIp" placeholder="192.168.1.1" value="192.168.1.1" required>
-            <div class="error"></div>
+        <div class="container">
+            <div class="form-section">
+                <p>Use this tool to generate Python, Terraform, and Ansible scripts for automating Palo Alto Firewall configurations. Fill in the required fields below and click "Generate Scripts".</p>
+                
+                <form onsubmit="event.preventDefault(); generateScripts();">
+                    <label for="firewallIp">Firewall Management IP:</label>
+                    <div class="explanation">Enter the management IP address of your Palo Alto Firewall. Default: <code>192.168.1.1</code>.</div>
+                    <input type="text" id="firewallIp" placeholder="192.168.1.1" value="192.168.1.1" required>
+                    <div class="error"></div>
 
-            <label for="apiKey">API Key:</label>
-            <div class="explanation">Enter the API key generated from your Palo Alto Firewall. This is required for authentication.</div>
-            <input type="text" id="apiKey" placeholder="Enter your API key" required>
-            <div class="error"></div>
+                    <label for="apiKey">API Key:</label>
+                    <div class="explanation">Enter the API key generated from your Palo Alto Firewall. This is required for authentication.</div>
+                    <input type="text" id="apiKey" placeholder="Enter your API key" required>
+                    <div class="error"></div>
 
-            <h3>Custom Interface Configuration</h3>
-            <div class="explanation">Add custom interfaces by selecting the interface name, and optionally specifying the IP address and subnet mask. Default configuration is cleared when custom values are added.</div>
-            <textarea id="defaultInterfaces" readonly style="width: 100%; height: 150px;"></textarea>
-            <button type="button" onclick="updateCodeBlocks()">Refresh Interfaces</button>
-            <div id="customIpContainer"></div>
-            <button type="button" onclick="addCustomRow('customIpContainer', [
-                { type: 'select', className: 'interface-name', options: [
-                    { value: 'ethernet1/1', label: 'ethernet1/1' },
-                    { value: 'ethernet1/2', label: 'ethernet1/2' },
-                    { value: 'ethernet1/3', label: 'ethernet1/3' },
-                    { value: 'ethernet1/4', label: 'ethernet1/4' }
-                ], required: true },
-                { placeholder: 'IP Address (e.g., 192.168.10.1)', className: 'ip-address', regex: /^\d{1,3}(\.\d{1,3}){3}$/, errorMessage: 'Invalid IP address' },
-                { placeholder: 'Subnet Mask (e.g., 24)', className: 'subnet-mask', regex: /^\d{1,2}$/, errorMessage: 'Invalid subnet mask' }
-            ])">Add Interface</button>
+                    <label for="firewallHostname">Firewall Hostname:</label>
+                    <div class="explanation">Enter the hostname for your Palo Alto Firewall. Default: <code>PANFW01</code>.</div>
+                    <input type="text" id="firewallHostname" placeholder="PANFW01">
+                    <div class="error"></div>
 
-            <h3>Custom Address Objects</h3>
-            <div class="explanation">Add custom address objects by specifying the name, IP address, and description. Default configuration is cleared when custom values are added.</div>
-            <textarea id="defaultAddresses" readonly style="width: 100%; height: 150px;"></textarea>
-            <button type="button" onclick="updateCodeBlocks()">Refresh Addresses</button>
-            <div id="customAddressContainer"></div>
-            <button type="button" onclick="addCustomRow('customAddressContainer', [
-                { placeholder: 'Address Name (e.g., web_server)', className: 'address-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true },
-                { placeholder: 'IP Address (e.g., 192.168.30.10)', className: 'address-ip', regex: /^\d{1,3}(\.\d{1,3}){3}$/, errorMessage: 'Invalid IP address', required: true },
-                { placeholder: 'Description (e.g., Web Server)', className: 'address-description', regex: /^.*$/, errorMessage: '' }
-            ])">Add Address</button>
+                    <h3>Custom Interface Configuration</h3>
+                    <div class="explanation">Add custom interfaces by selecting the interface name, and optionally specifying the IP address and subnet mask.</div>
+                    <div id="customIpContainer"></div>
+                    <button type="button" onclick="addCustomRow('customIpContainer', [
+                        { type: 'select', className: 'interface-name', options: [
+                            { value: 'ethernet1/1', label: 'ethernet1/1' },
+                            { value: 'ethernet1/2', label: 'ethernet1/2' },
+                            { value: 'ethernet1/3', label: 'ethernet1/3' },
+                            { value: 'ethernet1/4', label: 'ethernet1/4' }
+                        ], required: true },
+                        { placeholder: 'IP Address (e.g., 192.168.10.1)', className: 'ip-address', regex: /^\d{1,3}(\.\d{1,3}){3}$/, errorMessage: 'Invalid IP address' },
+                        { placeholder: 'Subnet Mask (e.g., 24)', className: 'subnet-mask', regex: /^\d{1,2}$/, errorMessage: 'Invalid subnet mask' }
+                    ])">Add Interface</button>
 
-            <h3>Custom Service Objects</h3>
-            <div class="explanation">Add custom service objects by specifying the name, protocol, port, and description. Default configuration is cleared when custom values are added.</div>
-            <textarea id="defaultServices" readonly style="width: 100%; height: 150px;"></textarea>
-            <button type="button" onclick="updateCodeBlocks()">Refresh Services</button>
-            <div id="customServiceContainer"></div>
-            <button type="button" onclick="addCustomRow('customServiceContainer', [
-                { placeholder: 'Service Name (e.g., http)', className: 'service-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true },
-                { placeholder: 'Protocol (e.g., tcp)', className: 'service-protocol', regex: /^(tcp|udp)$/, errorMessage: 'Invalid protocol', required: true },
-                { placeholder: 'Port (e.g., 80)', className: 'service-port', regex: /^\d+$/, errorMessage: 'Invalid port', required: true },
-                { placeholder: 'Description (e.g., HTTP Service)', className: 'service-description', regex: /^.*$/, errorMessage: '' }
-            ])">Add Service</button>
+                    <h3>Custom Address Objects</h3>
+                    <div class="explanation">Add custom address objects by specifying the name, IP address, and description.</div>
+                    <div id="customAddressContainer"></div>
+                    <button type="button" onclick="addCustomRow('customAddressContainer', [
+                        { placeholder: 'Address Name (e.g., web_server)', className: 'address-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true },
+                        { placeholder: 'IP Address (e.g., 192.168.30.10)', className: 'address-ip', regex: /^\d{1,3}(\.\d{1,3}){3}$/, errorMessage: 'Invalid IP address', required: true },
+                        { placeholder: 'Description (e.g., Web Server)', className: 'address-description', regex: /^.*$/, errorMessage: '' }
+                    ])">Add Address</button>
 
-            <button type="button" class="remove-defaults" onclick="removeAllDefaults()">Remove All Defaults</button>
-            <button type="submit">Generate Scripts</button>
-        </form>
+                    <h3>Custom Service Objects</h3>
+                    <div class="explanation">Add custom service objects by specifying the name, protocol, port, and description.</div>
+                    <div id="customServiceContainer"></div>
+                    <button type="button" onclick="addCustomRow('customServiceContainer', [
+                        { placeholder: 'Service Name (e.g., http)', className: 'service-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true },
+                        { placeholder: 'Protocol (e.g., tcp)', className: 'service-protocol', regex: /^(tcp|udp)$/, errorMessage: 'Invalid protocol', required: true },
+                        { placeholder: 'Port (e.g., 80)', className: 'service-port', regex: /^\d+$/, errorMessage: 'Invalid port', required: true },
+                        { placeholder: 'Description (e.g., HTTP Service)', className: 'service-description', regex: /^.*$/, errorMessage: '' }
+                    ])">Add Service</button>
+
+                    <button type="button" class="remove-defaults" onclick="removeAllDefaults()">Remove All Defaults</button>
+                    <button type="submit">Generate Scripts</button>
+                </form>
+            </div>
+            <div class="download-section">
+                <h3>Download Scripts</h3>
+                <div class="download-item" id="downloadPython">
+                    <i class="fas fa-file-code"></i> Python Script
+                </div>
+                <div class="download-item" id="downloadTerraform">
+                    <i class="fas fa-file-alt"></i> Terraform Script
+                </div>
+                <div class="download-item" id="downloadAnsible">
+                    <i class="fas fa-file"></i> Ansible Playbook
+                </div>
+            </div>
+        </div>
     </main>
 </body>
 </html>

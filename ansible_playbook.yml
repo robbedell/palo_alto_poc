@@ -33,6 +33,13 @@
         - "vpn"
         - "webtier"
 
+    - name: Set firewall hostname
+      panos_device:
+        provider:
+          ip_address: "192.168.1.1"  # Default management IP
+          api_key: "YOUR_API_KEY"   # Replace with your valid API key
+        hostname: "PANFW01"         # Default hostname
+
     - name: Add security policy
       panos_security_rule:
         provider:

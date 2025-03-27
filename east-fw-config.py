@@ -5,8 +5,9 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Palo Alto Firewall details
-firewall_ip = '192.168.1.1'  # Replace with your firewall's management IP
+firewall_ip = '192.168.1.1'  # Default management IP
 api_key = 'YOUR_API_KEY'     # Replace with your valid API key
+firewall_hostname = 'PANFW01'  # Default hostname
 
 # Function to send requests to the firewall
 def send_request(endpoint, params):

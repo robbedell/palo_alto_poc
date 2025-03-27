@@ -2,6 +2,12 @@
 
 Palo Alto Firewall / Panorama Automations
 
+## Default Values
+
+- **Firewall Management IP**: `192.168.1.1`
+- **API Key**: Replace with your valid API key.
+- **Firewall Hostname**: `PANFW01`
+
 ## Overview
 
 This repository contains automation scripts for configuring Palo Alto Firewalls using Python, Terraform, and Ansible. Additionally, a webpage is provided to dynamically generate these scripts based on user inputs, including custom interface configurations.

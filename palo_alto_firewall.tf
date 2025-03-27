@@ -1,6 +1,10 @@
 provider "panos" {
-  hostname = "192.168.1.1" # Replace with your firewall's management IP
+  hostname = "192.168.1.1" # Default management IP
   api_key  = "YOUR_API_KEY" # Replace with your valid API key
+}
+
+resource "panos_device" "firewall" {
+  hostname = "PANFW01" # Default hostname
 }
 
 resource "panos_interface" "ethernet" {
