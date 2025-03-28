@@ -125,63 +125,64 @@
         }
 
         function generateScripts() {
-            const firewallIp = document.getElementById("firewallIp").value;
-            const apiKey = document.getElementById("apiKey").value;
-            const firewallHostname = document.getElementById("firewallHostname").value || "PANFW01";
+            try {
+                const firewallIp = document.getElementById("firewallIp").value;
+                const apiKey = document.getElementById("apiKey").value;
+                const firewallHostname = document.getElementById("firewallHostname").value || "PANFW01";
 
-            const customIps = [];
-            document.querySelectorAll("#customIpContainer .row").forEach(row => {
-                const interfaceName = row.querySelector(".interface-name").value;
-                const ip = row.querySelector(".ip-address").value;
-                const subnet = row.querySelector(".subnet-mask").value;
-                if (interfaceName) {
-                    customIps.push({ interfaceName, ip, subnet });
-                }
-            });
+                const customIps = [];
+                document.querySelectorAll("#customIpContainer .row").forEach(row => {
+                    const interfaceName = row.querySelector(".interface-name").value;
+                    const ip = row.querySelector(".ip-address").value;
+                    const subnet = row.querySelector(".subnet-mask").value;
+                    if (interfaceName) {
+                        customIps.push({ interfaceName, ip, subnet });
+                    }
+                });
 
-            const customAddresses = [];
-            document.querySelectorAll("#customAddressContainer .row").forEach(row => {
-                const name = row.querySelector(".address-name").value;
-                const ip = row.querySelector(".address-ip").value;
-                const description = row.querySelector(".address-description").value;
-                if (name) {
-                    customAddresses.push({ name, ip, description });
-                }
-            });
+                const customAddresses = [];
+                document.querySelectorAll("#customAddressContainer .row").forEach(row => {
+                    const name = row.querySelector(".address-name").value;
+                    const ip = row.querySelector(".address-ip").value;
+                    const description = row.querySelector(".address-description").value;
+                    if (name) {
+                        customAddresses.push({ name, ip, description });
+                    }
+                });
 
-            const customServices = [];
-            document.querySelectorAll("#customServiceContainer .row").forEach(row => {
-                const name = row.querySelector(".service-name").value;
-                const protocol = row.querySelector(".service-protocol").value;
-                const port = row.querySelector(".service-port").value;
-                const description = row.querySelector(".service-description").value;
-                if (name) {
-                    customServices.push({ name, protocol, port, description });
-                }
-            });
+                const customServices = [];
+                document.querySelectorAll("#customServiceContainer .row").forEach(row => {
+                    const name = row.querySelector(".service-name").value;
+                    const protocol = row.querySelector(".service-protocol").value;
+                    const port = row.querySelector(".service-port").value;
+                    const description = row.querySelector(".service-description").value;
+                    if (name) {
+                        customServices.push({ name, protocol, port, description });
+                    }
+                });
 
-            const defaultIps = [
-                { interfaceName: "ethernet1/1", ip: null, subnet: null },
-                { interfaceName: "ethernet1/2", ip: null, subnet: null },
-                { interfaceName: "ethernet1/3", ip: null, subnet: null },
-                { interfaceName: "ethernet1/4", ip: null, subnet: null }
-            ];
+                const defaultIps = [
+                    { interfaceName: "ethernet1/1", ip: null, subnet: null },
+                    { interfaceName: "ethernet1/2", ip: null, subnet: null },
+                    { interfaceName: "ethernet1/3", ip: null, subnet: null },
+                    { interfaceName: "ethernet1/4", ip: null, subnet: null }
+                ];
 
-            const defaultAddresses = [
-                { name: "web_server", ip: "192.168.30.10", description: "Web Server Address" },
-                { name: "db_server", ip: "192.168.40.10", description: "Database Server Address" }
-            ];
+                const defaultAddresses = [
+                    { name: "web_server", ip: "192.168.30.10", description: "Web Server Address" },
+                    { name: "db_server", ip: "192.168.40.10", description: "Database Server Address" }
+                ];
 
-            const defaultServices = [
-                { name: "http", protocol: "tcp", port: "80", description: "HTTP Service" },
-                { name: "https", protocol: "tcp", port: "443", description: "HTTPS Service" }
-            ];
+                const defaultServices = [
+                    { name: "http", protocol: "tcp", port: "80", description: "HTTP Service" },
+                    { name: "https", protocol: "tcp", port: "443", description: "HTTPS Service" }
+                ];
 
-            const ips = includeDefaults ? [...defaultIps, ...customIps] : customIps;
-            const addresses = includeDefaults ? [...defaultAddresses, ...customAddresses] : customAddresses;
-            const services = includeDefaults ? [...defaultServices, ...customServices] : customServices;
+                const ips = includeDefaults ? [...defaultIps, ...customIps] : customIps;
+                const addresses = includeDefaults ? [...defaultAddresses, ...customAddresses] : customAddresses;
+                const services = includeDefaults ? [...defaultServices, ...customServices] : customServices;
 
-            const pythonScript = `
+                const pythonScript = `
 import requests
 import logging
 
@@ -198,7 +199,7 @@ custom_services = ${JSON.stringify(services, null, 4)}
 # Add your Python logic here
 `;
 
-            const terraformScript = `
+                const terraformScript = `
 provider "panos" {
   hostname = "${firewallIp}"
   api_key  = "${apiKey}"
@@ -255,7 +256,7 @@ resource "panos_service_object" "custom_services" {
 }
 `;
 
-            const ansibleScript = `
+                const ansibleScript = `
 - name: Configure Palo Alto Firewall
   hosts: localhost
   connection: local
@@ -273,10 +274,10 @@ resource "panos_service_object" "custom_services" {
           enable: "{{ item.dhcp }}"
           create_default_route: false
       loop: ${JSON.stringify(ips.map(ip => ({
-                name: ip.interfaceName,
-                ip: ip.ip ? `${ip.ip}/${ip.subnet}` : null,
-                dhcp: !ip.ip
-            })))}
+                    name: ip.interfaceName,
+                    ip: ip.ip ? `${ip.ip}/${ip.subnet}` : null,
+                    dhcp: !ip.ip
+                })))}
 
     - name: Add custom address objects
       panos_address_object:
@@ -300,11 +301,15 @@ resource "panos_service_object" "custom_services" {
       loop: ${JSON.stringify(services)}
 `;
 
-            downloadFile("east-fw-config.py", pythonScript);
-            downloadFile("palo_alto_firewall.tf", terraformScript);
-            downloadFile("ansible_playbook.yml", ansibleScript);
+                downloadFile("east-fw-config.py", pythonScript);
+                downloadFile("palo_alto_firewall.tf", terraformScript);
+                downloadFile("ansible_playbook.yml", ansibleScript);
 
-            alert("Scripts generated and downloaded successfully!");
+                alert("Scripts generated and downloaded successfully!");
+            } catch (error) {
+                console.error("Error generating scripts:", error);
+                alert("An error occurred while generating the scripts. Please check the console for details.");
+            }
         }
 
         function downloadFile(filename, content) {
