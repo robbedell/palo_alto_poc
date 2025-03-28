@@ -14,18 +14,20 @@ resource "panos_interface" "ethernet" {
   mode = "layer3"
 
   dynamic "ip" {
-    for_each = lookup(${JSON.stringify(customIps.reduce((acc, ip) => {
-        acc[ip.interfaceName] = { ip: ip.ip, subnet: ip.subnet };
-        return acc;
-    }, {}), null, 4)}, each.key, {})
+    for_each = lookup({
+      "ethernet1/1" = { ip = null, subnet = null },
+      "ethernet1/2" = { ip = null, subnet = null },
+      "ethernet1/3" = { ip = null, subnet = null },
+      "ethernet1/4" = { ip = null, subnet = null }
+    }, each.key, {})
 
     content {
-      address = "${ip.value.ip}/${ip.value.subnet}"
+      address = "${each.value.ip}/${each.value.subnet}"
     }
   }
 
   dhcp_client {
-    enable = ip.value == null
+    enable = each.value.ip == null
     create_default_route = false
   }
 }
