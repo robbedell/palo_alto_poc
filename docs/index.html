@@ -274,10 +274,10 @@ resource "panos_service_object" "custom_services" {
           enable: "{{ item.dhcp }}"
           create_default_route: false
       loop: ${JSON.stringify(ips.map(ip => ({
-                    name: ip.interfaceName,
-                    ip: ip.ip ? `${ip.ip}/${ip.subnet}` : null,
-                    dhcp: !ip.ip
-                })))}
+                name: ip.interfaceName,
+                ip: ip.ip ? `${ip.ip}/${ip.subnet}` : null,
+                dhcp: !ip.ip
+            })))}
 
     - name: Add custom address objects
       panos_address_object:
