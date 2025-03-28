@@ -22,6 +22,7 @@
             padding: 2rem;
             max-width: 800px;
             margin: auto;
+            position: relative;
         }
         label {
             font-weight: bold;
@@ -65,6 +66,23 @@
             font-size: 0.9rem;
             color: #555;
             margin-bottom: 0.5rem;
+        }
+        .download-icons {
+            position: absolute;
+            top: 2rem;
+            right: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .download-icons button {
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+        .download-icons img {
+            width: 32px;
+            height: 32px;
         }
     </style>
     <script>
@@ -125,31 +143,30 @@
         }
 
         function generateScripts() {
-            try {
-                const firewallIp = document.getElementById("firewallIp").value;
-                const apiKey = document.getElementById("apiKey").value;
-                const firewallHostname = document.getElementById("firewallHostname").value || "PANFW01";
+            const firewallIp = document.getElementById("firewallIp").value;
+            const apiKey = document.getElementById("apiKey").value;
+            const firewallHostname = document.getElementById("firewallHostname").value || "PANFW01";
 
-                const customIps = [];
-                document.querySelectorAll("#customIpContainer .row").forEach(row => {
-                    const interfaceName = row.querySelector(".interface-name").value;
-                    const ip = row.querySelector(".ip-address").value;
-                    const subnet = row.querySelector(".subnet-mask").value;
-                    if (interfaceName) {
-                        customIps.push({ interfaceName, ip, subnet });
-                    }
-                });
+            const customIps = [];
+            document.querySelectorAll("#customIpContainer .row").forEach(row => {
+                const interfaceName = row.querySelector(".interface-name").value;
+                const ip = row.querySelector(".ip-address").value;
+                const subnet = row.querySelector(".subnet-mask").value;
+                if (interfaceName) {
+                    customIps.push({ interfaceName, ip, subnet });
+                }
+            });
 
-                const defaultIps = [
-                    { interfaceName: "ethernet1/1", ip: null, subnet: null },
-                    { interfaceName: "ethernet1/2", ip: null, subnet: null },
-                    { interfaceName: "ethernet1/3", ip: null, subnet: null },
-                    { interfaceName: "ethernet1/4", ip: null, subnet: null }
-                ];
+            const defaultIps = [
+                { interfaceName: "ethernet1/1", ip: null, subnet: null },
+                { interfaceName: "ethernet1/2", ip: null, subnet: null },
+                { interfaceName: "ethernet1/3", ip: null, subnet: null },
+                { interfaceName: "ethernet1/4", ip: null, subnet: null }
+            ];
 
-                const ips = includeDefaults ? [...defaultIps, ...customIps] : customIps;
+            const ips = includeDefaults ? [...defaultIps, ...customIps] : customIps;
 
-                const pythonScript = `
+            const pythonScript = `
 import requests
 import logging
 
@@ -164,7 +181,7 @@ custom_ips = ${JSON.stringify(ips, null, 4)}
 # Add your Python logic here
 `;
 
-                const terraformScript = `
+            const terraformScript = `
 provider "panos" {
   hostname = "${firewallIp}"
   api_key  = "${apiKey}"
@@ -194,7 +211,7 @@ resource "panos_interface" "ethernet" {
 }
 `;
 
-                const ansibleScript = `
+            const ansibleScript = `
 - name: Configure Palo Alto Firewall
   hosts: localhost
   connection: local
@@ -218,15 +235,7 @@ resource "panos_interface" "ethernet" {
             })))}
 `;
 
-                downloadFile("east-fw-config.py", pythonScript);
-                downloadFile("palo_alto_firewall.tf", terraformScript);
-                downloadFile("ansible_playbook.yml", ansibleScript);
-
-                alert("Scripts generated and downloaded successfully!");
-            } catch (error) {
-                console.error("Error generating scripts:", error);
-                alert("An error occurred while generating the scripts. Please check the console for details.");
-            }
+            return { pythonScript, terraformScript, ansibleScript };
         }
 
         function downloadFile(filename, content) {
@@ -235,6 +244,21 @@ resource "panos_interface" "ethernet" {
             link.href = URL.createObjectURL(blob);
             link.download = filename;
             link.click();
+        }
+
+        function downloadPythonScript() {
+            const { pythonScript } = generateScripts();
+            downloadFile("east-fw-config.py", pythonScript);
+        }
+
+        function downloadTerraformScript() {
+            const { terraformScript } = generateScripts();
+            downloadFile("palo_alto_firewall.tf", terraformScript);
+        }
+
+        function downloadAnsibleScript() {
+            const { ansibleScript } = generateScripts();
+            downloadFile("ansible_playbook.yml", ansibleScript);
         }
     </script>
 </head>
@@ -300,6 +324,17 @@ resource "panos_interface" "ethernet" {
                     <button type="submit">Generate Scripts</button>
                 </form>
             </div>
+        </div>
+        <div class="download-icons">
+            <button onclick="downloadPythonScript()" title="Download Python Script">
+                <img src="python-icon.png" alt="Python">
+            </button>
+            <button onclick="downloadTerraformScript()" title="Download Terraform Script">
+                <img src="terraform-icon.png" alt="Terraform">
+            </button>
+            <button onclick="downloadAnsibleScript()" title="Download Ansible Script">
+                <img src="ansible-icon.png" alt="Ansible">
+            </button>
         </div>
     </main>
 </body>
