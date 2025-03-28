@@ -246,6 +246,88 @@ ${config.security_rules.map(r => `
             }
         }
 
+        function gatherUserConfig() {
+            // Basic firewall info
+            const firewallIp = document.getElementById("firewallIp").value;
+            const apiKey = document.getElementById("apiKey").value;
+            const firewallHostname = document.getElementById("firewallHostname").value;
+
+            // Read user-added interface rows
+            const interfaceRows = document.querySelectorAll("#customIpContainer .row");
+            const interfaces = [];
+            interfaceRows.forEach(row => {
+                const interfaceName = row.querySelector(".interface-name")?.value || "";
+                const ipAddress = row.querySelector(".ip-address")?.value || "";
+                const subnet = row.querySelector(".subnet-mask")?.value || "";
+                // Set DHCP based on if IP is provided
+                const dhcp = !ipAddress;
+                interfaces.push({ name: interfaceName, ip: ipAddress || null, subnet: subnet || null, dhcp });
+            });
+
+            // Read user-added address rows
+            const addressRows = document.querySelectorAll("#customAddressContainer .row");
+            const address_objects = [];
+            addressRows.forEach(row => {
+                const name = row.querySelector(".address-name")?.value || "";
+                const ip = row.querySelector(".address-ip")?.value || "";
+                const description = row.querySelector(".address-description")?.value || "";
+                address_objects.push({ name, ip, description });
+            });
+
+            // Read user-added service rows
+            const serviceRows = document.querySelectorAll("#customServiceContainer .row");
+            const service_objects = [];
+            serviceRows.forEach(row => {
+                const name = row.querySelector(".service-name")?.value || "";
+                const protocol = row.querySelector(".service-protocol")?.value || "";
+                const port = row.querySelector(".service-port")?.value || "";
+                const description = row.querySelector(".service-description")?.value || "";
+                service_objects.push({ name, protocol, port, description });
+            });
+
+            // Read user-added router rows
+            const routerRows = document.querySelectorAll("#customRouterContainer .row");
+            const virtual_routers = [];
+            routerRows.forEach(row => {
+                const rname = row.querySelector(".router-name")?.value || "";
+                if (rname) virtual_routers.push(rname);
+            });
+
+            // Read user-added security rule rows
+            const securityRows = document.querySelectorAll("#customSecurityContainer .row");
+            const security_rules = [];
+            securityRows.forEach(row => {
+                const name = row.querySelector(".rule-name")?.value || "";
+                const from_zone = [row.querySelector(".from-zone")?.value || "any"];
+                const to_zone = [row.querySelector(".to-zone")?.value || "any"];
+                const source = [row.querySelector(".source")?.value || "any"];
+                const destination = [row.querySelector(".destination")?.value || "any"];
+                const application = [row.querySelector(".application")?.value || "any"];
+                const service = [row.querySelector(".service")?.value || "any"];
+                const action = row.querySelector(".action")?.value || "allow";
+                const tag = [row.querySelector(".tag")?.value || "POC-DELETE"];
+                security_rules.push({ name, from_zone, to_zone, source, destination, application, service, action, tag });
+            });
+
+            return {
+                firewall: {
+                    management_ip: firewallIp,
+                    api_key: apiKey,
+                    hostname: firewallHostname
+                },
+                interfaces,
+                address_objects,
+                service_objects,
+                virtual_routers,
+                security_rules
+            };
+        }
+
+        function refreshCodeBlocks() {
+            const config = gatherUserConfig();
+            updateCodeBlocks(config);
+        }
+
         document.addEventListener("DOMContentLoaded", () => {
             // Set dark mode based on OS preference or saved user preference
             const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -279,6 +361,11 @@ ${config.security_rules.map(r => `
             uploadLabel.style.color = "white";
             sidebar.appendChild(uploadLabel);
             sidebar.appendChild(uploadInput);
+
+            // Auto-update code blocks on any input change
+            document.querySelectorAll("input, select").forEach(el => {
+                el.addEventListener("change", () => refreshCodeBlocks());
+            });
         });
     </script>
 </head>
@@ -295,7 +382,12 @@ ${config.security_rules.map(r => `
             <button onclick="document.getElementById('serviceConfig').scrollIntoView()">Service Objects</button>
             <button onclick="document.getElementById('routerConfig').scrollIntoView()">Virtual Routers</button>
             <button onclick="document.getElementById('securityConfig').scrollIntoView()">Security Rules</button>
-            <button id="generateScriptsButton" style="background-color: red; color: white; margin-top: 1rem;" onclick="generateAndDownloadScripts()">Generate Scripts</button>
+            <button
+                id="generateScriptsButton"
+                style="background-color: red; color: white; margin-top: 1rem;"
+                onclick="generateAndDownloadScripts(gatherUserConfig())">
+                Generate Scripts
+            </button>
         </aside>
         <main class="main-content">
             <section id="firewallConfig" class="form-section">

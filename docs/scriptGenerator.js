@@ -1,3 +1,15 @@
+function mergeByName(defaultArray, customArray) {
+    const merged = {};
+    for (const item of defaultArray) merged[item.name] = { ...item };
+    for (const item of customArray) merged[item.name] = { ...merged[item.name], ...item };
+    return Object.values(merged);
+}
+
+function mergeStrings(defaultArray, customArray) {
+    const set = new Set([...defaultArray, ...customArray]);
+    return Array.from(set);
+}
+
 function generateScriptsFromConfig(config) {
     const defaultConfig = {
         firewall: {
@@ -35,14 +47,14 @@ function generateScriptsFromConfig(config) {
         ]
     };
 
-    // Merge default config with user-provided config
+    // Overwrite with custom values
     config = {
-        firewall: { ...defaultConfig.firewall, ...(config?.firewall || {}) },
-        interfaces: [...defaultConfig.interfaces, ...(config?.interfaces || [])],
-        address_objects: [...defaultConfig.address_objects, ...(config?.address_objects || [])],
-        service_objects: [...defaultConfig.service_objects, ...(config?.service_objects || [])],
-        virtual_routers: [...defaultConfig.virtual_routers, ...(config?.virtual_routers || [])],
-        security_rules: [...defaultConfig.security_rules, ...(config?.security_rules || [])]
+        firewall: { ...defaultConfig.firewall, ...(config.firewall || {}) },
+        interfaces: mergeByName(defaultConfig.interfaces, config.interfaces || []),
+        address_objects: mergeByName(defaultConfig.address_objects, config.address_objects || []),
+        service_objects: mergeByName(defaultConfig.service_objects, config.service_objects || []),
+        virtual_routers: mergeStrings(defaultConfig.virtual_routers, config.virtual_routers || []),
+        security_rules: mergeByName(defaultConfig.security_rules, config.security_rules || [])
     };
 
     const firewallIp = config.firewall.management_ip;
