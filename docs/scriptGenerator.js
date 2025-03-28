@@ -1,7 +1,13 @@
 function mergeByName(defaultArray, customArray) {
     const merged = {};
-    for (const item of defaultArray) merged[item.name] = { ...item };
-    for (const item of customArray) merged[item.name] = { ...merged[item.name], ...item };
+    // Add default items
+    for (const item of defaultArray) {
+        merged[item.name] = { ...item };
+    }
+    // Override or add custom items
+    for (const item of customArray) {
+        merged[item.name] = { ...merged[item.name], ...item };
+    }
     return Object.values(merged);
 }
 
@@ -44,7 +50,16 @@ function generateScriptsFromConfig(config) {
                 action: "allow",
                 tag: ["POC-DELETE"]
             }
-        ]
+        ],
+        dns: {
+            primary: "1.1.1.1",
+            secondary: "8.8.8.8"
+        },
+        time_servers: [],
+        panorama: {
+            primary: "",
+            secondary: ""
+        }
     };
 
     // Overwrite with custom values
@@ -54,7 +69,10 @@ function generateScriptsFromConfig(config) {
         address_objects: mergeByName(defaultConfig.address_objects, config.address_objects || []),
         service_objects: mergeByName(defaultConfig.service_objects, config.service_objects || []),
         virtual_routers: mergeStrings(defaultConfig.virtual_routers, config.virtual_routers || []),
-        security_rules: mergeByName(defaultConfig.security_rules, config.security_rules || [])
+        security_rules: mergeByName(defaultConfig.security_rules, config.security_rules || []),
+        dns: { ...defaultConfig.dns, ...(config.dns || {}) },
+        time_servers: config.time_servers || [],
+        panorama: { ...defaultConfig.panorama, ...(config.panorama || {}) }
     };
 
     const firewallIp = config.firewall.management_ip;
@@ -66,6 +84,9 @@ function generateScriptsFromConfig(config) {
     const serviceObjects = config.service_objects;
     const virtualRouters = config.virtual_routers;
     const securityRules = config.security_rules;
+    const dns = config.dns;
+    const timeServers = config.time_servers;
+    const panorama = config.panorama;
 
     const scripts = {
         pythonScript: `
@@ -77,6 +98,10 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 firewall_ip = '${firewallIp}'
 api_key = '${apiKey}'
 firewall_hostname = '${firewallHostname}'
+
+dns_config = ${JSON.stringify(dns, null, 4)}
+time_servers = ${JSON.stringify(timeServers, null, 4)}
+panorama_config = ${JSON.stringify(panorama, null, 4)}
 
 custom_ips = ${JSON.stringify(interfaces, null, 4)}
 custom_addresses = ${JSON.stringify(addressObjects, null, 4)}
@@ -160,12 +185,23 @@ resource "panos_security_rule" "custom_security_rules" {
   action      = each.value.action
   tag         = each.value.tag
 }
+
+# DNS, Time, and Panorama placeholders
+# Add relevant resources or configuration blocks here if desired.
+# DNS: ${JSON.stringify(dns, null, 2)}
+# Time Servers: ${JSON.stringify(timeServers, null, 2)}
+# Panorama: ${JSON.stringify(panorama, null, 2)}
 `,
         ansibleScript: `
 - name: Configure Palo Alto Firewall
   hosts: localhost
   connection: local
   gather_facts: no
+  vars:
+    dns_config: ${JSON.stringify(dns, null, 4)}
+    time_servers: ${JSON.stringify(timeServers, null, 4)}
+    panorama_config: ${JSON.stringify(panorama, null, 4)}
+
   tasks:
     - name: Configure interfaces
       panos_interface:
@@ -224,6 +260,11 @@ resource "panos_security_rule" "custom_security_rules" {
         action: "{{ item.action }}"
         tag: "{{ item.tag }}"
       loop: ${JSON.stringify(securityRules)}
+
+    - name: Configure DNS, Time, and Panorama
+      debug:
+        msg: "DNS: {{ dns_config }}, Time Servers: {{ time_servers }}, Panorama: {{ panorama_config }}"
+      # Insert your actual Ansible modules or logic here
 `
     };
 

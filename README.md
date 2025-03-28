@@ -19,5 +19,10 @@ This repository provides a web-based tool (in the "docs" folder) for generating 
 • Virtual Routers: List router names to add or override defaults (e.g., trust, untrust).  
 • Security Rules: Specify zones, source/destination, application, service, action (allow/deny), and any desired tags.
 
+## New Configuration Items
+• DNS: Configure primary and secondary DNS (defaults: 1.1.1.1, 8.8.8.8).  
+• Time Servers: Add one or more NTP/Time servers.  
+• Panorama Servers: Specify primary and secondary Panorama hostnames/IPs.
+
 For more details on what each item represents and best practices for configuration, consult the official Palo Alto Networks documentation:
 - https://docs.paloaltonetworks.com
