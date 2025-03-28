@@ -108,6 +108,27 @@
             { name: "https", protocol: "tcp", port: "443", description: "HTTPS Service" }
         ];
 
+        const defaultVirtualRouters = [
+            { name: "trust" },
+            { name: "untrust" },
+            { name: "vpn" },
+            { name: "webtier" }
+        ];
+
+        const defaultSecurityRules = [
+            {
+                name: "POC_Any_Any_premigrate",
+                from: "any",
+                to: "any",
+                source: "any",
+                destination: "any",
+                application: "any",
+                service: "any",
+                action: "allow",
+                tag: "POC-DELETE"
+            }
+        ];
+
         function validateInput(input, regex, errorMessage) {
             const errorElement = input.nextElementSibling;
             if (!regex.test(input.value)) {
@@ -188,6 +209,26 @@
                     { placeholder: 'Description (e.g., HTTP Service)', className: 'service-description', regex: /^.*$/, errorMessage: '' }
                 ], service);
             });
+
+            defaultVirtualRouters.forEach(router => {
+                addCustomRow('customRouterContainer', [
+                    { placeholder: 'Router Name (e.g., trust)', className: 'router-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true }
+                ], router);
+            });
+
+            defaultSecurityRules.forEach(rule => {
+                addCustomRow('customSecurityContainer', [
+                    { placeholder: 'Rule Name (e.g., POC_Any_Any)', className: 'rule-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true },
+                    { placeholder: 'From Zone (e.g., any)', className: 'from-zone', regex: /^.*$/, errorMessage: '' },
+                    { placeholder: 'To Zone (e.g., any)', className: 'to-zone', regex: /^.*$/, errorMessage: '' },
+                    { placeholder: 'Source (e.g., any)', className: 'source', regex: /^.*$/, errorMessage: '' },
+                    { placeholder: 'Destination (e.g., any)', className: 'destination', regex: /^.*$/, errorMessage: '' },
+                    { placeholder: 'Application (e.g., any)', className: 'application', regex: /^.*$/, errorMessage: '' },
+                    { placeholder: 'Service (e.g., any)', className: 'service', regex: /^.*$/, errorMessage: '' },
+                    { placeholder: 'Action (e.g., allow)', className: 'action', regex: /^(allow|deny)$/, errorMessage: 'Invalid action', required: true },
+                    { placeholder: 'Tag (e.g., POC-DELETE)', className: 'tag', regex: /^.*$/, errorMessage: '' }
+                ], rule);
+            });
         }
 
         function generateScripts() {
@@ -226,9 +267,35 @@
                 }
             });
 
+            const customRouters = [];
+            document.querySelectorAll("#customRouterContainer .row").forEach(row => {
+                const name = row.querySelector(".router-name").value;
+                if (name) {
+                    customRouters.push({ name });
+                }
+            });
+
+            const customSecurityRules = [];
+            document.querySelectorAll("#customSecurityContainer .row").forEach(row => {
+                const name = row.querySelector(".rule-name").value;
+                const from = row.querySelector(".from-zone").value;
+                const to = row.querySelector(".to-zone").value;
+                const source = row.querySelector(".source").value;
+                const destination = row.querySelector(".destination").value;
+                const application = row.querySelector(".application").value;
+                const service = row.querySelector(".service").value;
+                const action = row.querySelector(".action").value;
+                const tag = row.querySelector(".tag").value;
+                if (name) {
+                    customSecurityRules.push({ name, from, to, source, destination, application, service, action, tag });
+                }
+            });
+
             const ips = includeDefaults ? [...defaultIps, ...customIps] : customIps;
             const addresses = includeDefaults ? [...defaultAddresses, ...customAddresses] : customAddresses;
             const services = includeDefaults ? [...defaultServices, ...customServices] : customServices;
+            const routers = includeDefaults ? [...defaultVirtualRouters, ...customRouters] : customRouters;
+            const securityRules = includeDefaults ? [...defaultSecurityRules, ...customSecurityRules] : customSecurityRules;
 
             const pythonScript = `
 import requests
@@ -243,6 +310,8 @@ firewall_hostname = '${firewallHostname}'
 custom_ips = ${JSON.stringify(ips, null, 4)}
 custom_addresses = ${JSON.stringify(addresses, null, 4)}
 custom_services = ${JSON.stringify(services, null, 4)}
+custom_routers = ${JSON.stringify(routers, null, 4)}
+custom_security_rules = ${JSON.stringify(securityRules, null, 4)}
 
 # Add your Python logic here
 `;
@@ -298,6 +367,32 @@ resource "panos_service_object" "custom_services" {
   destination_port = each.value.port
   description = each.value.description
 }
+
+resource "panos_virtual_router" "custom_routers" {
+  for_each = ${JSON.stringify(routers.reduce((acc, router) => {
+        acc[router.name] = {};
+        return acc;
+    }, {}))}
+
+  name = each.key
+}
+
+resource "panos_security_rule" "custom_security_rules" {
+  for_each = ${JSON.stringify(securityRules.reduce((acc, rule) => {
+        acc[rule.name] = rule;
+        return acc;
+    }, {}))}
+
+  name        = each.key
+  from        = each.value.from
+  to          = each.value.to
+  source      = each.value.source
+  destination = each.value.destination
+  application = each.value.application
+  service     = each.value.service
+  action      = each.value.action
+  tag         = each.value.tag
+}
 `;
 
             const ansibleScript = `
@@ -343,6 +438,30 @@ resource "panos_service_object" "custom_services" {
         destination_port: "{{ item.port }}"
         description: "{{ item.description }}"
       loop: ${JSON.stringify(services)}
+
+    - name: Add custom virtual routers
+      panos_virtual_router:
+        provider:
+          ip_address: "${firewallIp}"
+          api_key: "${apiKey}"
+        name: "{{ item.name }}"
+      loop: ${JSON.stringify(routers)}
+
+    - name: Add custom security rules
+      panos_security_rule:
+        provider:
+          ip_address: "${firewallIp}"
+          api_key: "${apiKey}"
+        name: "{{ item.name }}"
+        from: "{{ item.from }}"
+        to: "{{ item.to }}"
+        source: "{{ item.source }}"
+        destination: "{{ item.destination }}"
+        application: "{{ item.application }}"
+        service: "{{ item.service }}"
+        action: "{{ item.action }}"
+        tag: "{{ item.tag }}"
+      loop: ${JSON.stringify(securityRules)}
 `;
 
             document.getElementById("downloadSection").style.display = "flex";
@@ -431,6 +550,28 @@ resource "panos_service_object" "custom_services" {
                     { placeholder: 'Port (e.g., 80)', className: 'service-port', regex: /^\d+$/, errorMessage: 'Invalid port', required: true },
                     { placeholder: 'Description (e.g., HTTP Service)', className: 'service-description', regex: /^.*$/, errorMessage: '' }
                 ])">Add Service</button>
+
+                <h3>Custom Virtual Routers</h3>
+                <div class="explanation">Add custom virtual routers by specifying their names.</div>
+                <div id="customRouterContainer"></div>
+                <button type="button" onclick="addCustomRow('customRouterContainer', [
+                    { placeholder: 'Router Name (e.g., trust)', className: 'router-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true }
+                ])">Add Router</button>
+
+                <h3>Custom Security Rules</h3>
+                <div class="explanation">Add custom security rules by specifying their details.</div>
+                <div id="customSecurityContainer"></div>
+                <button type="button" onclick="addCustomRow('customSecurityContainer', [
+                    { placeholder: 'Rule Name (e.g., POC_Any_Any)', className: 'rule-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true },
+                    { placeholder: 'From Zone (e.g., any)', className: 'from-zone', regex: /^.*$/, errorMessage: '' },
+                    { placeholder: 'To Zone (e.g., any)', className: 'to-zone', regex: /^.*$/, errorMessage: '' },
+                    { placeholder: 'Source (e.g., any)', className: 'source', regex: /^.*$/, errorMessage: '' },
+                    { placeholder: 'Destination (e.g., any)', className: 'destination', regex: /^.*$/, errorMessage: '' },
+                    { placeholder: 'Application (e.g., any)', className: 'application', regex: /^.*$/, errorMessage: '' },
+                    { placeholder: 'Service (e.g., any)', className: 'service', regex: /^.*$/, errorMessage: '' },
+                    { placeholder: 'Action (e.g., allow)', className: 'action', regex: /^(allow|deny)$/, errorMessage: 'Invalid action', required: true },
+                    { placeholder: 'Tag (e.g., POC-DELETE)', className: 'tag', regex: /^.*$/, errorMessage: '' }
+                ])">Add Rule</button>
 
                 <button type="button" class="remove-defaults" onclick="removeAllDefaults()">Remove All Defaults</button>
                 <button type="submit">Generate Scripts</button>

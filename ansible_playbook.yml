@@ -66,6 +66,7 @@
       loop:
         - { name: "web_server", ip: "192.168.30.10", description: "Web Server Address" }
         - { name: "db_server", ip: "192.168.40.10", description: "Database Server Address" }
+        - { name: "custom_server", ip: "192.168.50.10", description: "Custom Server Address" }
 
     - name: Add custom service objects
       panos_service_object:
@@ -79,3 +80,4 @@
       loop:
         - { name: "http", protocol: "tcp", port: "80", description: "HTTP Service" }
         - { name: "https", protocol: "tcp", port: "443", description: "HTTPS Service" }
+        - { name: "custom_service", protocol: "udp", port: "1234", description: "Custom Service" }

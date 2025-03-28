@@ -9,6 +9,24 @@ firewall_ip = '192.168.1.1'  # Default management IP
 api_key = 'YOUR_API_KEY'     # Replace with your valid API key
 firewall_hostname = 'PANFW01'  # Default hostname
 
+# Default configurations
+default_ips = {
+    "ethernet1/1": {"ip": None, "subnet": None},
+    "ethernet1/2": {"ip": None, "subnet": None},
+    "ethernet1/3": {"ip": None, "subnet": None},
+    "ethernet1/4": {"ip": None, "subnet": None}
+}
+
+default_addresses = {
+    "web_server": {"ip": "192.168.30.10", "description": "Web Server Address"},
+    "db_server": {"ip": "192.168.40.10", "description": "Database Server Address"}
+}
+
+default_services = {
+    "http": {"protocol": "tcp", "port": "80", "description": "HTTP Service"},
+    "https": {"protocol": "tcp", "port": "443", "description": "HTTPS Service"}
+}
+
 # Function to send requests to the firewall
 def send_request(endpoint, params):
     url = f"https://{firewall_ip}/api/"
@@ -27,12 +45,11 @@ def is_success(response):
 
 # Configure interfaces 1-4 as Layer 3 with DHCP or custom IP and subnet
 def configure_interfaces(custom_ips=None):
-    for interface_id in range(1, 5):
-        interface_name = f'ethernet1/{interface_id}'
+    ips = {**default_ips, **(custom_ips or {})}
+    for interface_name, config in ips.items():
         logging.info(f"Configuring interface {interface_name}...")
 
-        # Default to DHCP if no custom IP is provided
-        if not custom_ips or interface_name not in custom_ips:
+        if config["ip"] is None:
             element = """
             <layer3>
                 <dhcp-client>
@@ -42,13 +59,10 @@ def configure_interfaces(custom_ips=None):
             </layer3>
             """
         else:
-            # Use custom IP and subnet
-            ip_address = custom_ips[interface_name]['ip']
-            subnet_mask = custom_ips[interface_name]['subnet']
             element = f"""
             <layer3>
                 <ip>
-                    <entry name="{ip_address}/{subnet_mask}"/>
+                    <entry name="{config['ip']}/{config['subnet']}"/>
                 </ip>
             </layer3>
             """
@@ -128,8 +142,9 @@ def add_security_policy():
         logging.error(f"Failed to add policy {policy_name}.")
 
 # Add custom address objects
-def add_address_objects(custom_addresses):
-    for name, details in custom_addresses.items():
+def add_address_objects(custom_addresses=None):
+    addresses = {**default_addresses, **(custom_addresses or {})}
+    for name, details in addresses.items():
         logging.info(f"Adding address object {name}...")
         address_xpath = f"/config/devices/entry[@name='localhost.localdomain']/address/entry[@name='{name}']"
         address_element = f"""
@@ -152,8 +167,9 @@ def add_address_objects(custom_addresses):
             logging.error(f"Failed to add address object {name}.")
 
 # Add custom service objects
-def add_service_objects(custom_services):
-    for name, details in custom_services.items():
+def add_service_objects(custom_services=None):
+    services = {**default_services, **(custom_services or {})}
+    for name, details in services.items():
         logging.info(f"Adding service object {name}...")
         service_xpath = f"/config/devices/entry[@name='localhost.localdomain']/service/entry[@name='{name}']"
         service_element = f"""
@@ -187,16 +203,14 @@ if __name__ == "__main__":
         "ethernet1/2": {"ip": "192.168.20.1", "subnet": "24"}
     }
     custom_addresses = {
-        "web_server": {"ip": "192.168.30.10", "description": "Web Server Address"},
-        "db_server": {"ip": "192.168.40.10", "description": "Database Server Address"}
+        "custom_server": {"ip": "192.168.50.10", "description": "Custom Server Address"}
     }
     custom_services = {
-        "http": {"protocol": "tcp", "port": "80", "description": "HTTP Service"},
-        "https": {"protocol": "tcp", "port": "443", "description": "HTTPS Service"}
+        "custom_service": {"protocol": "udp", "port": "1234", "description": "Custom Service"}
     }
     configure_interfaces(custom_ips=custom_ips)
     add_virtual_routers()
     add_security_policy()
-    add_address_objects(custom_addresses)
-    add_service_objects(custom_services)
+    add_address_objects(custom_addresses=custom_addresses)
+    add_service_objects(custom_services=custom_services)
     logging.info("Configuration completed.")
