@@ -91,6 +91,23 @@
     <script>
         let includeDefaults = true;
 
+        const defaultIps = [
+            { interfaceName: "ethernet1/1", ip: null, subnet: null },
+            { interfaceName: "ethernet1/2", ip: null, subnet: null },
+            { interfaceName: "ethernet1/3", ip: null, subnet: null },
+            { interfaceName: "ethernet1/4", ip: null, subnet: null }
+        ];
+
+        const defaultAddresses = [
+            { name: "web_server", ip: "192.168.30.10", description: "Web Server Address" },
+            { name: "db_server", ip: "192.168.40.10", description: "Database Server Address" }
+        ];
+
+        const defaultServices = [
+            { name: "http", protocol: "tcp", port: "80", description: "HTTP Service" },
+            { name: "https", protocol: "tcp", port: "443", description: "HTTPS Service" }
+        ];
+
         function validateInput(input, regex, errorMessage) {
             const errorElement = input.nextElementSibling;
             if (!regex.test(input.value)) {
@@ -101,7 +118,7 @@
             return true;
         }
 
-        function addCustomRow(containerId, fields) {
+        function addCustomRow(containerId, fields, defaultValues = {}) {
             const container = document.getElementById(containerId);
             const row = document.createElement("div");
             row.className = "row";
@@ -113,12 +130,16 @@
                         const opt = document.createElement("option");
                         opt.value = option.value;
                         opt.textContent = option.label;
+                        if (defaultValues[field.className] === option.value) {
+                            opt.selected = true;
+                        }
                         input.appendChild(opt);
                     });
                 } else {
                     input = document.createElement("input");
                     input.type = "text";
                     input.placeholder = field.placeholder;
+                    input.value = defaultValues[field.className] || '';
                 }
                 input.className = field.className;
                 input.required = field.required || false;
@@ -137,12 +158,36 @@
             container.appendChild(row);
         }
 
-        function removeAllDefaults() {
-            includeDefaults = false;
-            document.getElementById("customIpContainer").innerHTML = "";
-            document.getElementById("customAddressContainer").innerHTML = "";
-            document.getElementById("customServiceContainer").innerHTML = "";
-            alert("Default configuration removed. Only custom values will be included in the scripts.");
+        function populateDefaults() {
+            defaultIps.forEach(ip => {
+                addCustomRow('customIpContainer', [
+                    { type: 'select', className: 'interface-name', options: [
+                        { value: 'ethernet1/1', label: 'ethernet1/1' },
+                        { value: 'ethernet1/2', label: 'ethernet1/2' },
+                        { value: 'ethernet1/3', label: 'ethernet1/3' },
+                        { value: 'ethernet1/4', label: 'ethernet1/4' }
+                    ], required: true },
+                    { placeholder: 'IP Address (e.g., 192.168.10.1)', className: 'ip-address', regex: /^\d{1,3}(\.\d{1,3}){3}$/, errorMessage: 'Invalid IP address' },
+                    { placeholder: 'Subnet Mask (e.g., 24)', className: 'subnet-mask', regex: /^\d{1,2}$/, errorMessage: 'Invalid subnet mask' }
+                ], ip);
+            });
+
+            defaultAddresses.forEach(address => {
+                addCustomRow('customAddressContainer', [
+                    { placeholder: 'Address Name (e.g., web_server)', className: 'address-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true },
+                    { placeholder: 'IP Address (e.g., 192.168.30.10)', className: 'address-ip', regex: /^\d{1,3}(\.\d{1,3}){3}$/, errorMessage: 'Invalid IP address', required: true },
+                    { placeholder: 'Description (e.g., Web Server)', className: 'address-description', regex: /^.*$/, errorMessage: '' }
+                ], address);
+            });
+
+            defaultServices.forEach(service => {
+                addCustomRow('customServiceContainer', [
+                    { placeholder: 'Service Name (e.g., http)', className: 'service-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true },
+                    { placeholder: 'Protocol (e.g., tcp)', className: 'service-protocol', regex: /^(tcp|udp)$/, errorMessage: 'Invalid protocol', required: true },
+                    { placeholder: 'Port (e.g., 80)', className: 'service-port', regex: /^\d+$/, errorMessage: 'Invalid port', required: true },
+                    { placeholder: 'Description (e.g., HTTP Service)', className: 'service-description', regex: /^.*$/, errorMessage: '' }
+                ], service);
+            });
         }
 
         function generateScripts() {
@@ -180,23 +225,6 @@
                     customServices.push({ name, protocol, port, description });
                 }
             });
-
-            const defaultIps = [
-                { interfaceName: "ethernet1/1", ip: null, subnet: null },
-                { interfaceName: "ethernet1/2", ip: null, subnet: null },
-                { interfaceName: "ethernet1/3", ip: null, subnet: null },
-                { interfaceName: "ethernet1/4", ip: null, subnet: null }
-            ];
-
-            const defaultAddresses = [
-                { name: "web_server", ip: "192.168.30.10", description: "Web Server Address" },
-                { name: "db_server", ip: "192.168.40.10", description: "Database Server Address" }
-            ];
-
-            const defaultServices = [
-                { name: "http", protocol: "tcp", port: "80", description: "HTTP Service" },
-                { name: "https", protocol: "tcp", port: "443", description: "HTTPS Service" }
-            ];
 
             const ips = includeDefaults ? [...defaultIps, ...customIps] : customIps;
             const addresses = includeDefaults ? [...defaultAddresses, ...customAddresses] : customAddresses;
@@ -343,6 +371,8 @@ resource "panos_service_object" "custom_services" {
             const { ansibleScript } = generateScripts();
             downloadFile("ansible_playbook.yml", ansibleScript);
         }
+
+        document.addEventListener("DOMContentLoaded", populateDefaults);
     </script>
 </head>
 <body>
