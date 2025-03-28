@@ -182,23 +182,6 @@
                 const addresses = includeDefaults ? [...defaultAddresses, ...customAddresses] : customAddresses;
                 const services = includeDefaults ? [...defaultServices, ...customServices] : customServices;
 
-                const pythonScript = `
-import requests
-import logging
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-firewall_ip = '${firewallIp}'
-api_key = '${apiKey}'
-firewall_hostname = '${firewallHostname}'
-
-custom_ips = ${JSON.stringify(ips, null, 4)}
-custom_addresses = ${JSON.stringify(addresses, null, 4)}
-custom_services = ${JSON.stringify(services, null, 4)}
-
-# Add your Python logic here
-`;
-
                 const terraformScript = `
 provider "panos" {
   hostname = "${firewallIp}"
@@ -222,12 +205,12 @@ resource "panos_interface" "ethernet" {
     }, {}))}, each.key, {})
 
     content {
-      address = "${ip.value.ip}/${ip.value.subnet}"
+      address = "\${each.value.ip}/\${each.value.subnet}"
     }
   }
 
   dhcp_client {
-    enable = ip.value == null
+    enable = each.value.ip == null
     create_default_route = false
   }
 }
@@ -254,6 +237,23 @@ resource "panos_service_object" "custom_services" {
   destination_port = each.value.port
   description = each.value.description
 }
+`;
+
+                const pythonScript = `
+import requests
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+firewall_ip = '${firewallIp}'
+api_key = '${apiKey}'
+firewall_hostname = '${firewallHostname}'
+
+custom_ips = ${JSON.stringify(ips, null, 4)}
+custom_addresses = ${JSON.stringify(addresses, null, 4)}
+custom_services = ${JSON.stringify(services, null, 4)}
+
+# Add your Python logic here
 `;
 
                 const ansibleScript = `
