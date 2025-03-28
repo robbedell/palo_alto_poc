@@ -510,12 +510,12 @@ resource "panos_security_rule" "custom_security_rules" {
 
                 <label for="apiKey">API Key:</label>
                 <div class="explanation">Enter the API key generated from your Palo Alto Firewall. This is required for authentication.</div>
-                <input type="text" id="apiKey" placeholder="Enter your API key" required>
+                <input type="text" id="apiKey" placeholder="Enter your API key" value="YOUR_API_KEY" required>
                 <div class="error"></div>
 
                 <label for="firewallHostname">Firewall Hostname:</label>
                 <div class="explanation">Enter the hostname for your Palo Alto Firewall. Default: <code>PANFW01</code>.</div>
-                <input type="text" id="firewallHostname" placeholder="PANFW01">
+                <input type="text" id="firewallHostname" placeholder="PANFW01" value="PANFW01">
                 <div class="error"></div>
 
                 <h3>Custom Interface Configuration</h3>
