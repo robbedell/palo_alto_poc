@@ -1,0 +1,35 @@
+{
+  "firewall": {
+    "management_ip": "192.168.1.1",
+    "api_key": "YOUR_API_KEY",
+    "hostname": "PANFW01"
+  },
+  "interfaces": [
+    { "name": "ethernet1/1", "ip": "192.168.10.1", "subnet": "24", "dhcp": false },
+    { "name": "ethernet1/2", "ip": null, "subnet": null, "dhcp": true },
+    { "name": "ethernet1/3", "ip": null, "subnet": null, "dhcp": true },
+    { "name": "ethernet1/4", "ip": null, "subnet": null, "dhcp": true }
+  ],
+  "address_objects": [
+    { "name": "web_server", "ip": "192.168.30.10", "description": "Web Server Address" },
+    { "name": "12345", "ip": "192.168.40.10", "description": "Database Server Address" }
+  ],
+  "service_objects": [
+    { "name": "http", "protocol": "tcp", "port": "80", "description": "HTTP Service" },
+    { "name": "https", "protocol": "tcp", "port": "443", "description": "HTTPS Service" }
+  ],
+  "virtual_routers": ["trust", "untrust", "vpn", "webtier"],
+  "security_rules": [
+    {
+      "name": "POC_Any_Any_premigrate",
+      "from_zone": ["any"],
+      "to_zone": ["any"],
+      "source": ["any"],
+      "destination": ["any"],
+      "application": ["any"],
+      "service": ["any"],
+      "action": "allow",
+      "tag": ["POC-DELETE"]
+    }
+  ]
+}

@@ -4,526 +4,282 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Palo Alto Firewall Automation</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            height: 100vh;
-            background-color: #f4f4f4;
-            color: #333;
-        }
-        header {
-            background-color: #0078d7;
-            color: white;
-            padding: 1rem;
-            text-align: center;
-            flex-shrink: 0;
-        }
-        .container {
-            display: flex;
-            flex: 1;
-            overflow: hidden;
-        }
-        .sidebar {
-            width: 250px;
-            background-color: #333;
-            color: white;
-            padding: 1rem;
-            overflow-y: auto;
-            flex-shrink: 0;
-        }
-        .sidebar h2 {
-            font-size: 1.2rem;
-            margin-bottom: 1rem;
-        }
-        .sidebar button {
-            width: 100%;
-            padding: 0.5rem;
-            margin-bottom: 0.5rem;
-            background-color: #444;
-            color: white;
-            border: none;
-            cursor: pointer;
-            text-align: left;
-        }
-        .sidebar button:hover {
-            background-color: #555;
-        }
-        .main-content {
-            flex: 1;
-            padding: 2rem;
-            overflow-y: auto;
-        }
-        .form-section {
-            margin-bottom: 2rem;
-        }
-        label {
-            font-weight: bold;
-            display: block;
-            margin-bottom: 0.5rem;
-        }
-        input, select, button {
-            margin: 0.5rem 0;
-            padding: 0.5rem;
-            width: 100%;
-            max-width: 600px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        button {
-            background-color: #0078d7;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #005bb5;
-        }
-        .row {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1rem;
-            align-items: center;
-        }
-        .row select, .row input {
-            flex: 1;
-        }
-        .row button {
-            padding: 0.3rem 0.5rem;
-            font-size: 0.8rem;
-            width: auto;
-        }
-        .error {
-            color: red;
-            font-size: 0.9rem;
-        }
-        .explanation {
-            font-size: 0.9rem;
-            color: #555;
-            margin-bottom: 0.5rem;
-        }
-        .download-section {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            margin-top: 2rem;
-        }
-        .download-section button {
-            background: none;
-            border: none;
-            cursor: pointer;
-        }
-        .download-section img {
-            width: 32px;
-            height: 32px;
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css"> <!-- Link to external CSS -->
+    <script src="scriptGenerator.js" defer></script> <!-- Link to the new script file -->
     <script>
-        let includeDefaults = true;
+        function toggleSection(section) {
+            section.classList.toggle("collapsed");
+        }
 
-        const defaultIps = [
-            { interfaceName: "ethernet1/1", ip: null, subnet: null },
-            { interfaceName: "ethernet1/2", ip: null, subnet: null },
-            { interfaceName: "ethernet1/3", ip: null, subnet: null },
-            { interfaceName: "ethernet1/4", ip: null, subnet: null }
-        ];
+        function toggleDarkMode() {
+            const body = document.body;
+            const toggleButton = document.getElementById('darkModeToggle');
+            body.classList.toggle('dark-mode');
+            toggleButton.textContent = body.classList.contains('dark-mode') ? '☀️' : '🌙';
+            localStorage.setItem('darkMode', body.classList.contains('dark-mode') ? 'enabled' : 'disabled');
+        }
 
-        const defaultAddresses = [
-            { name: "web_server", ip: "192.168.30.10", description: "Web Server Address" },
-            { name: "db_server", ip: "192.168.40.10", description: "Database Server Address" }
-        ];
-
-        const defaultServices = [
-            { name: "http", protocol: "tcp", port: "80", description: "HTTP Service" },
-            { name: "https", protocol: "tcp", port: "443", description: "HTTPS Service" }
-        ];
-
-        const defaultVirtualRouters = [
-            { name: "trust" },
-            { name: "untrust" },
-            { name: "vpn" },
-            { name: "webtier" }
-        ];
-
-        const defaultSecurityRules = [
-            {
-                name: "POC_Any_Any_premigrate",
-                from: "any",
-                to: "any",
-                source: "any",
-                destination: "any",
-                application: "any",
-                service: "any",
-                action: "allow",
-                tag: "POC-DELETE"
-            }
-        ];
-
-        function validateInput(input, regex, errorMessage) {
-            const errorElement = input.nextElementSibling;
-            if (!regex.test(input.value)) {
+        function validateField(field, regex, errorMessage) {
+            const errorElement = field.nextElementSibling;
+            if (!regex.test(field.value.trim())) {
+                field.style.borderColor = "red";
                 errorElement.textContent = errorMessage;
+                errorElement.classList.remove("hidden");
                 return false;
             }
-            errorElement.textContent = '';
+            field.style.borderColor = "";
+            errorElement.textContent = "";
+            errorElement.classList.add("hidden");
             return true;
         }
 
-        function addCustomRow(containerId, fields, defaultValues = {}) {
+        function validateInputs() {
+            let isValid = true;
+
+            const firewallIpField = document.getElementById("firewallIp");
+            const apiKeyField = document.getElementById("apiKey");
+            const firewallHostnameField = document.getElementById("firewallHostname");
+
+            isValid &= validateField(firewallIpField, /^\d{1,3}(\.\d{1,3}){3}$/, "Invalid IP address");
+            isValid &= validateField(apiKeyField, /^.+$/, "API key is required");
+            isValid &= validateField(firewallHostnameField, /^[a-zA-Z0-9_-]+$/, "Invalid hostname");
+
+            document.querySelectorAll(".row").forEach(row => {
+                row.querySelectorAll("input").forEach(input => {
+                    const regex = input.getAttribute("data-regex");
+                    const errorMessage = input.getAttribute("data-error");
+                    if (regex && errorMessage) {
+                        isValid &= validateField(input, new RegExp(regex), errorMessage);
+                    }
+                });
+            });
+
+            return isValid;
+        }
+
+        function addCustomRow(containerId, fields) {
             const container = document.getElementById(containerId);
+            if (!container) {
+                console.error(`Container with ID "${containerId}" not found.`);
+                return;
+            }
+
             const row = document.createElement("div");
             row.className = "row";
+
             fields.forEach(field => {
-                let input;
+                let inputElement;
                 if (field.type === "select") {
-                    input = document.createElement("select");
+                    inputElement = document.createElement("select");
+                    inputElement.className = field.className;
                     field.options.forEach(option => {
-                        const opt = document.createElement("option");
-                        opt.value = option.value;
-                        opt.textContent = option.label;
-                        if (defaultValues[field.className] === option.value) {
-                            opt.selected = true;
-                        }
-                        input.appendChild(opt);
+                        const optionElement = document.createElement("option");
+                        optionElement.value = option.value;
+                        optionElement.textContent = option.label;
+                        inputElement.appendChild(optionElement);
                     });
                 } else {
-                    input = document.createElement("input");
-                    input.type = "text";
-                    input.placeholder = field.placeholder;
-                    input.value = defaultValues[field.className] || '';
+                    inputElement = document.createElement("input");
+                    inputElement.type = "text";
+                    inputElement.placeholder = field.placeholder;
+                    inputElement.className = field.className;
+                    if (field.regex) {
+                        inputElement.setAttribute("data-regex", field.regex.source);
+                    }
+                    if (field.errorMessage) {
+                        inputElement.setAttribute("data-error", field.errorMessage);
+                    }
                 }
-                input.className = field.className;
-                input.required = field.required || false;
-                input.oninput = () => validateInput(input, field.regex, field.errorMessage);
-                row.appendChild(input);
 
-                const error = document.createElement("div");
-                error.className = "error";
-                row.appendChild(error);
+                row.appendChild(inputElement);
             });
-            const removeButton = document.createElement("button");
-            removeButton.type = "button";
-            removeButton.textContent = "X";
-            removeButton.onclick = () => row.remove();
-            row.appendChild(removeButton);
+
+            const deleteButton = document.createElement("button");
+            deleteButton.type = "button";
+            deleteButton.textContent = "Remove";
+            deleteButton.onclick = () => container.removeChild(row);
+            row.appendChild(deleteButton);
+
             container.appendChild(row);
         }
 
-        function populateDefaults() {
-            defaultIps.forEach(ip => {
-                addCustomRow('customIpContainer', [
-                    { type: 'select', className: 'interface-name', options: [
-                        { value: 'ethernet1/1', label: 'ethernet1/1' },
-                        { value: 'ethernet1/2', label: 'ethernet1/2' },
-                        { value: 'ethernet1/3', label: 'ethernet1/3' },
-                        { value: 'ethernet1/4', label: 'ethernet1/4' }
-                    ], required: true },
-                    { placeholder: 'IP Address (e.g., 192.168.10.1)', className: 'ip-address', regex: /^\d{1,3}(\.\d{1,3}){3}$/, errorMessage: 'Invalid IP address', value: ip.ip || '' },
-                    { placeholder: 'Subnet Mask (e.g., 24)', className: 'subnet-mask', regex: /^\d{1,2}$/, errorMessage: 'Invalid subnet mask', value: ip.subnet || '' }
-                ], ip);
-            });
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
 
-            defaultAddresses.forEach(address => {
-                addCustomRow('customAddressContainer', [
-                    { placeholder: 'Address Name (e.g., web_server)', className: 'address-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true, value: address.name },
-                    { placeholder: 'IP Address (e.g., 192.168.30.10)', className: 'address-ip', regex: /^\d{1,3}(\.\d{1,3}){3}$/, errorMessage: 'Invalid IP address', required: true, value: address.ip },
-                    { placeholder: 'Description (e.g., Web Server)', className: 'address-description', regex: /^.*$/, errorMessage: '', value: address.description }
-                ], address);
-            });
-
-            defaultServices.forEach(service => {
-                addCustomRow('customServiceContainer', [
-                    { placeholder: 'Service Name (e.g., http)', className: 'service-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true, value: service.name },
-                    { placeholder: 'Protocol (e.g., tcp)', className: 'service-protocol', regex: /^(tcp|udp)$/, errorMessage: 'Invalid protocol', required: true, value: service.protocol },
-                    { placeholder: 'Port (e.g., 80)', className: 'service-port', regex: /^\d+$/, errorMessage: 'Invalid port', required: true, value: service.port },
-                    { placeholder: 'Description (e.g., HTTP Service)', className: 'service-description', regex: /^.*$/, errorMessage: '', value: service.description }
-                ], service);
-            });
-
-            defaultVirtualRouters.forEach(router => {
-                addCustomRow('customRouterContainer', [
-                    { placeholder: 'Router Name (e.g., trust)', className: 'router-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true, value: router.name }
-                ], router);
-            });
-
-            defaultSecurityRules.forEach(rule => {
-                addCustomRow('customSecurityContainer', [
-                    { placeholder: 'Rule Name (e.g., POC_Any_Any)', className: 'rule-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true, value: rule.name },
-                    { placeholder: 'From Zone (e.g., any)', className: 'from-zone', regex: /^.*$/, errorMessage: '', value: rule.from },
-                    { placeholder: 'To Zone (e.g., any)', className: 'to-zone', regex: /^.*$/, errorMessage: '', value: rule.to },
-                    { placeholder: 'Source (e.g., any)', className: 'source', regex: /^.*$/, errorMessage: '', value: rule.source },
-                    { placeholder: 'Destination (e.g., any)', className: 'destination', regex: /^.*$/, errorMessage: '', value: rule.destination },
-                    { placeholder: 'Application (e.g., any)', className: 'application', regex: /^.*$/, errorMessage: '', value: rule.application },
-                    { placeholder: 'Service (e.g., any)', className: 'service', regex: /^.*$/, errorMessage: '', value: rule.service },
-                    { placeholder: 'Action (e.g., allow)', className: 'action', regex: /^(allow|deny)$/, errorMessage: 'Invalid action', required: true, value: rule.action },
-                    { placeholder: 'Tag (e.g., POC-DELETE)', className: 'tag', regex: /^.*$/, errorMessage: '', value: rule.tag }
-                ], rule);
-            });
-        }
-
-        function generateScripts() {
-            const firewallIp = document.getElementById("firewallIp").value;
-            const apiKey = document.getElementById("apiKey").value;
-            const firewallHostname = document.getElementById("firewallHostname").value || "PANFW01";
-
-            const customIps = [];
-            document.querySelectorAll("#customIpContainer .row").forEach(row => {
-                const interfaceName = row.querySelector(".interface-name").value;
-                const ip = row.querySelector(".ip-address").value;
-                const subnet = row.querySelector(".subnet-mask").value;
-                if (interfaceName) {
-                    customIps.push({ interfaceName, ip, subnet });
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const config = JSON.parse(e.target.result);
+                    updateCodeBlocks(config);
+                    updateConfigForGeneration(config); // Update the config for script generation
+                    alert("Configuration loaded successfully!");
+                } catch (error) {
+                    alert("Invalid JSON file. Please upload a valid configuration.");
                 }
-            });
-
-            const customAddresses = [];
-            document.querySelectorAll("#customAddressContainer .row").forEach(row => {
-                const name = row.querySelector(".address-name").value;
-                const ip = row.querySelector(".address-ip").value;
-                const description = row.querySelector(".address-description").value;
-                if (name) {
-                    customAddresses.push({ name, ip, description });
-                }
-            });
-
-            const customServices = [];
-            document.querySelectorAll("#customServiceContainer .row").forEach(row => {
-                const name = row.querySelector(".service-name").value;
-                const protocol = row.querySelector(".service-protocol").value;
-                const port = row.querySelector(".service-port").value;
-                const description = row.querySelector(".service-description").value;
-                if (name) {
-                    customServices.push({ name, protocol, port, description });
-                }
-            });
-
-            const customRouters = [];
-            document.querySelectorAll("#customRouterContainer .row").forEach(row => {
-                const name = row.querySelector(".router-name").value;
-                if (name) {
-                    customRouters.push({ name });
-                }
-            });
-
-            const customSecurityRules = [];
-            document.querySelectorAll("#customSecurityContainer .row").forEach(row => {
-                const name = row.querySelector(".rule-name").value;
-                const from = row.querySelector(".from-zone").value;
-                const to = row.querySelector(".to-zone").value;
-                const source = row.querySelector(".source").value;
-                const destination = row.querySelector(".destination").value;
-                const application = row.querySelector(".application").value;
-                const service = row.querySelector(".service").value;
-                const action = row.querySelector(".action").value;
-                const tag = row.querySelector(".tag").value;
-                if (name) {
-                    customSecurityRules.push({ name, from, to, source, destination, application, service, action, tag });
-                }
-            });
-
-            const ips = includeDefaults ? [...defaultIps, ...customIps] : customIps;
-            const addresses = includeDefaults ? [...defaultAddresses, ...customAddresses] : customAddresses;
-            const services = includeDefaults ? [...defaultServices, ...customServices] : customServices;
-            const routers = includeDefaults ? [...defaultVirtualRouters, ...customRouters] : customRouters;
-            const securityRules = includeDefaults ? [...defaultSecurityRules, ...customSecurityRules] : customSecurityRules;
-
-            const pythonScript = `
-import requests
-import logging
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-firewall_ip = '${firewallIp}'
-api_key = '${apiKey}'
-firewall_hostname = '${firewallHostname}'
-
-custom_ips = ${JSON.stringify(ips, null, 4)}
-custom_addresses = ${JSON.stringify(addresses, null, 4)}
-custom_services = ${JSON.stringify(services, null, 4)}
-custom_routers = ${JSON.stringify(routers, null, 4)}
-custom_security_rules = ${JSON.stringify(securityRules, null, 4)}
-
-# Add your Python logic here
-`;
-
-            const terraformScript = `
-provider "panos" {
-  hostname = "${firewallIp}"
-  api_key  = "${apiKey}"
-}
-
-resource "panos_interface" "ethernet" {
-  for_each = toset(${JSON.stringify(ips.map(ip => ip.interfaceName))})
-
-  name = each.key
-  mode = "layer3"
-
-  dynamic "ip" {
-    for_each = lookup(${JSON.stringify(ips.reduce((acc, ip) => {
-        acc[ip.interfaceName] = { ip: ip.ip, subnet: ip.subnet };
-        return acc;
-    }, {}))}, each.key, {})
-
-    content {
-      address = "\${each.value.ip}/\${each.value.subnet}"
-    }
-  }
-
-  dhcp_client {
-    enable = each.value.ip == null
-    create_default_route = false
-  }
-}
-
-resource "panos_address_object" "custom_addresses" {
-  for_each = ${JSON.stringify(addresses.reduce((acc, addr) => {
-        acc[addr.name] = { ip: addr.ip, description: addr.description };
-        return acc;
-    }, {}))}
-
-  name        = each.key
-  value       = each.value.ip
-  description = each.value.description
-}
-
-resource "panos_service_object" "custom_services" {
-  for_each = ${JSON.stringify(services.reduce((acc, svc) => {
-        acc[svc.name] = { protocol: svc.protocol, port: svc.port, description: svc.description };
-        return acc;
-    }, {}))}
-
-  name        = each.key
-  protocol    = each.value.protocol
-  destination_port = each.value.port
-  description = each.value.description
-}
-
-resource "panos_virtual_router" "custom_routers" {
-  for_each = ${JSON.stringify(routers.reduce((acc, router) => {
-        acc[router.name] = {};
-        return acc;
-    }, {}))}
-
-  name = each.key
-}
-
-resource "panos_security_rule" "custom_security_rules" {
-  for_each = ${JSON.stringify(securityRules.reduce((acc, rule) => {
-        acc[rule.name] = rule;
-        return acc;
-    }, {}))}
-
-  name        = each.key
-  from        = each.value.from
-  to          = each.value.to
-  source      = each.value.source
-  destination = each.value.destination
-  application = each.value.application
-  service     = each.value.service
-  action      = each.value.action
-  tag         = each.value.tag
-}
-`;
-
-            const ansibleScript = `
-- name: Configure Palo Alto Firewall
-  hosts: localhost
-  connection: local
-  gather_facts: no
-  tasks:
-    - name: Configure interfaces
-      panos_interface:
-        provider:
-          ip_address: "${firewallIp}"
-          api_key: "${apiKey}"
-        name: "{{ item.name }}"
-        mode: "layer3"
-        ip: "{{ item.ip }}"
-        dhcp_client:
-          enable: "{{ item.dhcp }}"
-          create_default_route: false
-      loop: ${JSON.stringify(ips.map(ip => ({
-                name: ip.interfaceName,
-                ip: ip.ip ? `${ip.ip}/${ip.subnet}` : null,
-                dhcp: !ip.ip
-            })))}
-
-    - name: Add custom address objects
-      panos_address_object:
-        provider:
-          ip_address: "${firewallIp}"
-          api_key: "${apiKey}"
-        name: "{{ item.name }}"
-        value: "{{ item.ip }}"
-        description: "{{ item.description }}"
-      loop: ${JSON.stringify(addresses)}
-
-    - name: Add custom service objects
-      panos_service_object:
-        provider:
-          ip_address: "${firewallIp}"
-          api_key: "${apiKey}"
-        name: "{{ item.name }}"
-        protocol: "{{ item.protocol }}"
-        destination_port: "{{ item.port }}"
-        description: "{{ item.description }}"
-      loop: ${JSON.stringify(services)}
-
-    - name: Add custom virtual routers
-      panos_virtual_router:
-        provider:
-          ip_address: "${firewallIp}"
-          api_key: "${apiKey}"
-        name: "{{ item.name }}"
-      loop: ${JSON.stringify(routers)}
-
-    - name: Add custom security rules
-      panos_security_rule:
-        provider:
-          ip_address: "${firewallIp}"
-          api_key: "${apiKey}"
-        name: "{{ item.name }}"
-        from: "{{ item.from }}"
-        to: "{{ item.to }}"
-        source: "{{ item.source }}"
-        destination: "{{ item.destination }}"
-        application: "{{ item.application }}"
-        service: "{{ item.service }}"
-        action: "{{ item.action }}"
-        tag: "{{ item.tag }}"
-      loop: ${JSON.stringify(securityRules)}
-`;
-
-            document.getElementById("downloadSection").style.display = "flex";
-            return { pythonScript, terraformScript, ansibleScript };
+            };
+            reader.readAsText(file);
         }
 
-        function downloadFile(filename, content) {
-            const blob = new Blob([content], { type: "text/plain" });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = filename;
-            link.click();
+        function updateConfigForGeneration(config) {
+            // Update the form fields with the uploaded JSON configuration
+            if (config.firewall) {
+                document.getElementById("firewallIp").value = config.firewall.management_ip || "";
+                document.getElementById("apiKey").value = config.firewall.api_key || "";
+                document.getElementById("firewallHostname").value = config.firewall.hostname || "";
+            }
+
+            // Update custom rows for interfaces, address objects, service objects, etc.
+            const updateCustomRows = (containerId, data, fields) => {
+                const container = document.getElementById(containerId);
+                container.innerHTML = ""; // Clear existing rows
+                data.forEach(item => addCustomRow(containerId, fields.map(field => ({
+                    ...field,
+                    value: item[field.className] || ""
+                }))));
+            };
+
+            if (config.interfaces) {
+                updateCustomRows("customIpContainer", config.interfaces, [
+                    { type: "select", className: "interface-name", options: [
+                        { value: "ethernet1/1", label: "ethernet1/1" },
+                        { value: "ethernet1/2", label: "ethernet1/2" },
+                        { value: "ethernet1/3", label: "ethernet1/3" },
+                        { value: "ethernet1/4", label: "ethernet1/4" }
+                    ] },
+                    { placeholder: "IP Address (e.g., 192.168.10.1)", className: "ip-address" },
+                    { placeholder: "Subnet Mask (e.g., 24)", className: "subnet-mask" }
+                ]);
+            }
+
+            if (config.address_objects) {
+                updateCustomRows("customAddressContainer", config.address_objects, [
+                    { placeholder: "Address Name (e.g., web_server)", className: "address-name" },
+                    { placeholder: "IP Address (e.g., 192.168.30.10)", className: "address-ip" },
+                    { placeholder: "Description (e.g., Web Server)", className: "address-description" }
+                ]);
+            }
+
+            if (config.service_objects) {
+                updateCustomRows("customServiceContainer", config.service_objects, [
+                    { placeholder: "Service Name (e.g., http)", className: "service-name" },
+                    { placeholder: "Protocol (e.g., tcp)", className: "service-protocol" },
+                    { placeholder: "Port (e.g., 80)", className: "service-port" },
+                    { placeholder: "Description (e.g., HTTP Service)", className: "service-description" }
+                ]);
+            }
+
+            if (config.virtual_routers) {
+                updateCustomRows("customRouterContainer", config.virtual_routers.map(name => ({ "router-name": name })), [
+                    { placeholder: "Router Name (e.g., trust)", className: "router-name" }
+                ]);
+            }
+
+            if (config.security_rules) {
+                updateCustomRows("customSecurityContainer", config.security_rules, [
+                    { placeholder: "Rule Name (e.g., Allow_HTTP)", className: "rule-name" },
+                    { placeholder: "From Zone (e.g., trust)", className: "from-zone" },
+                    { placeholder: "To Zone (e.g., untrust)", className: "to-zone" },
+                    { placeholder: "Source (e.g., any)", className: "source" },
+                    { placeholder: "Destination (e.g., any)", className: "destination" },
+                    { placeholder: "Application (e.g., any)", className: "application" },
+                    { placeholder: "Service (e.g., any)", className: "service" },
+                    { placeholder: "Action (e.g., allow)", className: "action", regex: /^(allow|deny)$/, errorMessage: 'Invalid action', required: true },
+                    { placeholder: "Tag (e.g., POC-DELETE)", className: "tag" }
+                ]);
+            }
         }
 
-        function downloadPythonScript() {
-            const { pythonScript } = generateScripts();
-            downloadFile("east-fw-config.py", pythonScript);
+        function updateCodeBlocks(config) {
+            if (config.firewall) {
+                document.querySelector("#firewallConfig details pre code").textContent = `
+provider:
+  ip_address: "${config.firewall.management_ip}"
+  api_key: "${config.firewall.api_key}"
+hostname: "${config.firewall.hostname}"
+                `.trim();
+            }
+
+            if (config.interfaces) {
+                document.querySelector("#interfaceConfig details pre code").textContent = `
+interfaces:
+${config.interfaces.map(i => `  - name: "${i.name}"\n    ip: ${i.ip ? `"${i.ip}"` : "null"}\n    dhcp: ${i.dhcp}`).join("\n")}
+                `.trim();
+            }
+
+            if (config.address_objects) {
+                document.querySelector("#addressConfig details pre code").textContent = `
+address_objects:
+${config.address_objects.map(a => `  - name: "${a.name}"\n    ip: "${a.ip}"\n    description: "${a.description}"`).join("\n")}
+                `.trim();
+            }
+
+            if (config.service_objects) {
+                document.querySelector("#serviceConfig details pre code").textContent = `
+service_objects:
+${config.service_objects.map(s => `  - name: "${s.name}"\n    protocol: "${s.protocol}"\n    port: "${s.port}"\n    description: "${s.description}"`).join("\n")}
+                `.trim();
+            }
+
+            if (config.virtual_routers) {
+                document.querySelector("#routerConfig details pre code").textContent = `
+virtual_routers:
+${config.virtual_routers.map(vr => `  - "${vr}"`).join("\n")}
+                `.trim();
+            }
+
+            if (config.security_rules) {
+                document.querySelector("#securityConfig details pre code").textContent = `
+security_rules:
+${config.security_rules.map(r => `
+  - name: "${r.name}"
+    from_zone: ${JSON.stringify(r.from_zone)}
+    to_zone: ${JSON.stringify(r.to_zone)}
+    source: ${JSON.stringify(r.source)}
+    destination: ${JSON.stringify(r.destination)}
+    application: ${JSON.stringify(r.application)}
+    service: ${JSON.stringify(r.service)}
+    action: "${r.action}"
+    tag: ${JSON.stringify(r.tag)}
+`).join("\n")}
+                `.trim();
+            }
         }
 
-        function downloadTerraformScript() {
-            const { terraformScript } = generateScripts();
-            downloadFile("palo_alto_firewall.tf", terraformScript);
-        }
+        document.addEventListener("DOMContentLoaded", () => {
+            // Set dark mode based on OS preference or saved user preference
+            const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const savedDarkMode = localStorage.getItem('darkMode');
+            const body = document.body;
 
-        function downloadAnsibleScript() {
-            const { ansibleScript } = generateScripts();
-            downloadFile("ansible_playbook.yml", ansibleScript);
-        }
+            if (savedDarkMode === 'enabled' || (savedDarkMode === null && prefersDarkMode)) {
+                body.classList.add('dark-mode');
+            }
 
-        document.addEventListener("DOMContentLoaded", populateDefaults);
+            const darkModeToggle = document.createElement('button');
+            darkModeToggle.id = 'darkModeToggle';
+            darkModeToggle.className = 'dark-mode-toggle';
+            darkModeToggle.textContent = body.classList.contains('dark-mode') ? '☀️' : '🌙';
+            darkModeToggle.onclick = toggleDarkMode;
+            document.body.appendChild(darkModeToggle);
+
+            document.querySelectorAll(".form-section h2").forEach(header => {
+                header.addEventListener("click", () => toggleSection(header.parentElement));
+            });
+
+            const uploadInput = document.createElement("input");
+            uploadInput.type = "file";
+            uploadInput.accept = "application/json";
+            uploadInput.style.marginBottom = "1rem";
+            uploadInput.addEventListener("change", handleFileUpload);
+
+            const sidebar = document.querySelector(".sidebar");
+            const uploadLabel = document.createElement("label");
+            uploadLabel.textContent = "Upload Configuration:";
+            uploadLabel.style.color = "white";
+            sidebar.appendChild(uploadLabel);
+            sidebar.appendChild(uploadInput);
+        });
     </script>
 </head>
 <body>
@@ -539,102 +295,181 @@ resource "panos_security_rule" "custom_security_rules" {
             <button onclick="document.getElementById('serviceConfig').scrollIntoView()">Service Objects</button>
             <button onclick="document.getElementById('routerConfig').scrollIntoView()">Virtual Routers</button>
             <button onclick="document.getElementById('securityConfig').scrollIntoView()">Security Rules</button>
+            <button id="generateScriptsButton" style="background-color: red; color: white; margin-top: 1rem;" onclick="generateAndDownloadScripts()">Generate Scripts</button>
         </aside>
         <main class="main-content">
             <section id="firewallConfig" class="form-section">
                 <h2>Firewall Configuration</h2>
-                <label for="firewallIp">Firewall Management IP:</label>
-                <div class="explanation">Enter the management IP address of your Palo Alto Firewall. Default: <code>192.168.1.1</code>.</div>
-                <input type="text" id="firewallIp" placeholder="192.168.1.1" value="192.168.1.1" required>
-                <div class="error"></div>
+                <details>
+                    <summary>Default Configuration</summary>
+                    <pre><code class="language-yaml">
+provider:
+  ip_address: "192.168.1.1"  # Default management IP
+  api_key: "YOUR_API_KEY"    # Replace with your valid API key
+hostname: "PANFW01"          # Default hostname
+                    </code></pre>
+                </details>
+                <div class="form-content"></div>
+                    <label for="firewallIp">Firewall Management IP:</label>
+                    <div class="explanation">Enter the management IP address of your Palo Alto Firewall. Example: <code>192.168.1.1</code>.</div>
+                    <input type="text" id="firewallIp" placeholder="192.168.1.1" value="192.168.1.1" required>
+                    <div class="error hidden"></div>
 
-                <label for="apiKey">API Key:</label>
-                <div class="explanation">Enter the API key generated from your Palo Alto Firewall. This is required for authentication.</div>
-                <input type="text" id="apiKey" placeholder="Enter your API key" value="YOUR_API_KEY" required>
-                <div class="error"></div>
+                    <label for="apiKey">API Key:</label>
+                    <div class="explanation">Enter the API key generated from your Palo Alto Firewall. This is required for authentication. Example: <code>ABCD1234EFGH5678</code>.</div>
+                    <input type="text" id="apiKey" placeholder="Enter your API key" value="YOUR_API_KEY" required>
+                    <div class="error hidden"></div>
 
-                <label for="firewallHostname">Firewall Hostname:</label>
-                <div class="explanation">Enter the hostname for your Palo Alto Firewall. Default: <code>PANFW01</code>.</div>
-                <input type="text" id="firewallHostname" placeholder="PANFW01" value="PANFW01">
-                <div class="error"></div>
+                    <label for="firewallHostname">Firewall Hostname:</label>
+                    <div class="explanation">Enter the hostname for your Palo Alto Firewall. Default: <code>PANFW01</code>. Example: <code>MyFirewall</code>.</div>
+                    <input type="text" id="firewallHostname" placeholder="PANFW01" value="PANFW01">
+                    <div class="error hidden"></div>
+                </div>
             </section>
 
-            <section id="interfaceConfig" class="form-section">
+            <section id="interfaceConfig" class="form-section collapsed">
                 <h2>Custom Interface Configuration</h2>
-                <div class="explanation">Add custom interfaces by selecting the interface name, and optionally specifying the IP address and subnet mask. Defaults to DHCP if no custom values are provided.</div>
-                <div id="customIpContainer"></div>
-                <button type="button" onclick="addCustomRow('customIpContainer', [
-                    { type: 'select', className: 'interface-name', options: [
-                        { value: 'ethernet1/1', label: 'ethernet1/1' },
-                        { value: 'ethernet1/2', label: 'ethernet1/2' },
-                        { value: 'ethernet1/3', label: 'ethernet1/3' },
-                        { value: 'ethernet1/4', label: 'ethernet1/4' }
-                    ], required: true },
-                    { placeholder: 'IP Address (e.g., 192.168.10.1)', className: 'ip-address', regex: /^\d{1,3}(\.\d{1,3}){3}$/, errorMessage: 'Invalid IP address' },
-                    { placeholder: 'Subnet Mask (e.g., 24)', className: 'subnet-mask', regex: /^\d{1,2}$/, errorMessage: 'Invalid subnet mask' }
-                ])">Add Interface</button>
+                <details>
+                    <summary>Default Configuration</summary>
+                    <pre><code class="language-yaml">
+interfaces:
+  - name: "ethernet1/1"
+    ip: null
+    dhcp: true
+  - name: "ethernet1/2"
+    ip: null
+    dhcp: true
+  - name: "ethernet1/3"
+    ip: null
+    dhcp: true
+  - name: "ethernet1/4"
+    ip: null
+    dhcp: true
+                    </code></pre>
+                </details>
+                <div class="form-content"></div>
+                    <div class="explanation">Add custom interfaces by selecting the interface name, and optionally specifying the IP address and subnet mask. Defaults to DHCP if no custom values are provided.</div>
+                    <div id="customIpContainer"></div>
+                    <button type="button" onclick="addCustomRow('customIpContainer', [
+                        { type: 'select', className: 'interface-name', options: [
+                            { value: 'ethernet1/1', label: 'ethernet1/1' },
+                            { value: 'ethernet1/2', label: 'ethernet1/2' },
+                            { value: 'ethernet1/3', label: 'ethernet1/3' },
+                            { value: 'ethernet1/4', label: 'ethernet1/4' }
+                        ], required: true },
+                        { placeholder: 'IP Address (e.g., 192.168.10.1)', className: 'ip-address', regex: /^\d{1,3}(\.\d{1,3}){3}$/, errorMessage: 'Invalid IP address' },
+                        { placeholder: 'Subnet Mask (e.g., 24)', className: 'subnet-mask', regex: /^\d{1,2}$/, errorMessage: 'Invalid subnet mask' }
+                    ])">Add Interface</button>
+                </div>
             </section>
 
-            <section id="addressConfig" class="form-section">
+            <section id="addressConfig" class="form-section collapsed">
                 <h2>Custom Address Objects</h2>
-                <div class="explanation">Add custom address objects by specifying the name, IP address, and description.</div>
-                <div id="customAddressContainer"></div>
-                <button type="button" onclick="addCustomRow('customAddressContainer', [
-                    { placeholder: 'Address Name (e.g., web_server)', className: 'address-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true },
-                    { placeholder: 'IP Address (e.g., 192.168.30.10)', className: 'address-ip', regex: /^\d{1,3}(\.\d{1,3}){3}$/, errorMessage: 'Invalid IP address', required: true },
-                    { placeholder: 'Description (e.g., Web Server)', className: 'address-description', regex: /^.*$/, errorMessage: '' }
-                ])">Add Address</button>
+                <details>
+                    <summary>Default Configuration</summary>
+                    <pre><code class="language-yaml">
+address_objects:
+  - name: "web_server"
+    ip: "192.168.30.10"
+    description: "Web Server Address"
+  - name: "db_server"
+    ip: "192.168.40.10"
+    description: "Database Server Address"
+                    </code></pre>
+                </details>
+                <div class="form-content">
+                    <div class="explanation">Add custom address objects by specifying the name, IP address, and description.</div>
+                    <div id="customAddressContainer"></div>
+                    <button type="button" onclick="addCustomRow('customAddressContainer', [
+                        { placeholder: 'Address Name (e.g., web_server)', className: 'address-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true },
+                        { placeholder: 'IP Address (e.g., 192.168.30.10)', className: 'address-ip', regex: /^\d{1,3}(\.\d{1,3}){3}$/, errorMessage: 'Invalid IP address', required: true },
+                        { placeholder: 'Description (e.g., Web Server)', className: 'address-description', regex: /^.*$/, errorMessage: '' }
+                    ])">Add Address</button>
+                </div>
             </section>
 
-            <section id="serviceConfig" class="form-section">
+            <section id="serviceConfig" class="form-section collapsed">
                 <h2>Custom Service Objects</h2>
-                <div class="explanation">Add custom service objects by specifying the name, protocol, port, and description.</div>
-                <div id="customServiceContainer"></div>
-                <button type="button" onclick="addCustomRow('customServiceContainer', [
-                    { placeholder: 'Service Name (e.g., http)', className: 'service-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true },
-                    { placeholder: 'Protocol (e.g., tcp)', className: 'service-protocol', regex: /^(tcp|udp)$/, errorMessage: 'Invalid protocol', required: true },
-                    { placeholder: 'Port (e.g., 80)', className: 'service-port', regex: /^\d+$/, errorMessage: 'Invalid port', required: true },
-                    { placeholder: 'Description (e.g., HTTP Service)', className: 'service-description', regex: /^.*$/, errorMessage: '' }
-                ])">Add Service</button>
+                <details>
+                    <summary>Default Configuration</summary>
+                    <pre><code class="language-yaml">
+service_objects:
+  - name: "http"
+    protocol: "tcp"
+    port: "80"
+    description: "HTTP Service"
+  - name: "https"
+    protocol: "tcp"
+    port: "443"
+    description: "HTTPS Service"
+                    </code></pre>
+                </details>
+                <div class="form-content">
+                    <div class="explanation">Add custom service objects by specifying the name, protocol, port, and description.</div>
+                    <div id="customServiceContainer"></div>
+                    <button type="button" onclick="addCustomRow('customServiceContainer', [
+                        { placeholder: 'Service Name (e.g., http)', className: 'service-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true },
+                        { placeholder: 'Protocol (e.g., tcp)', className: 'service-protocol', regex: /^(tcp|udp)$/, errorMessage: 'Invalid protocol', required: true },
+                        { placeholder: 'Port (e.g., 80)', className: 'service-port', regex: /^\d+$/, errorMessage: 'Invalid port', required: true },
+                        { placeholder: 'Description (e.g., HTTP Service)', className: 'service-description', regex: /^.*$/, errorMessage: '' }
+                    ])">Add Service</button>
+                </div>
             </section>
 
-            <section id="routerConfig" class="form-section">
+            <section id="routerConfig" class="form-section collapsed">
                 <h2>Custom Virtual Routers</h2>
-                <div class="explanation">Add custom virtual routers by specifying their names.</div>
-                <div id="customRouterContainer"></div>
-                <button type="button" onclick="addCustomRow('customRouterContainer', [
-                    { placeholder: 'Router Name (e.g., trust)', className: 'router-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true }
-                ])">Add Router</button>
+                <details>
+                    <summary>Default Configuration</summary>
+                    <pre><code class="language-yaml">
+virtual_routers:
+  - "trust"
+  - "untrust"
+  - "vpn"
+  - "webtier"
+                    </code></pre>
+                </details>
+                <div class="form-content">
+                    <div class="explanation">Add custom virtual routers by specifying their names. Example: <code>trust</code>, <code>untrust</code>.</div>
+                    <div id="customRouterContainer"></div>
+                    <button type="button" onclick="addCustomRow('customRouterContainer', [
+                        { placeholder: 'Router Name (e.g., trust)', className: 'router-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true }
+                    ])">Add Router</button>
+                </div>
             </section>
 
-            <section id="securityConfig" class="form-section">
+            <section id="securityConfig" class="form-section collapsed">
                 <h2>Custom Security Rules</h2>
-                <div class="explanation">Add custom security rules by specifying their details.</div>
-                <div id="customSecurityContainer"></div>
-                <button type="button" onclick="addCustomRow('customSecurityContainer', [
-                    { placeholder: 'Rule Name (e.g., POC_Any_Any)', className: 'rule-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true },
-                    { placeholder: 'From Zone (e.g., any)', className: 'from-zone', regex: /^.*$/, errorMessage: '' },
-                    { placeholder: 'To Zone (e.g., any)', className: 'to-zone', regex: /^.*$/, errorMessage: '' },
-                    { placeholder: 'Source (e.g., any)', className: 'source', regex: /^.*$/, errorMessage: '' },
-                    { placeholder: 'Destination (e.g., any)', className: 'destination', regex: /^.*$/, errorMessage: '' },
-                    { placeholder: 'Application (e.g., any)', className: 'application', regex: /^.*$/, errorMessage: '' },
-                    { placeholder: 'Service (e.g., any)', className: 'service', regex: /^.*$/, errorMessage: '' },
-                    { placeholder: 'Action (e.g., allow)', className: 'action', regex: /^(allow|deny)$/, errorMessage: 'Invalid action', required: true },
-                    { placeholder: 'Tag (e.g., POC-DELETE)', className: 'tag', regex: /^.*$/, errorMessage: '' }
-                ])">Add Rule</button>
+                <details>
+                    <summary>Default Configuration</summary>
+                    <pre><code class="language-yaml">
+security_rules:
+  - name: "POC_Any_Any_premigrate"
+    from_zone: ["any"]
+    to_zone: ["any"]
+    source: ["any"]
+    destination: ["any"]
+    application: ["any"]
+    service: ["any"]
+    action: "allow"
+    tag: ["POC-DELETE"]
+                    </code></pre>
+                </details>
+                <div class="form-content">
+                    <div class="explanation">Add custom security rules by specifying their details. Example: Rule Name: <code>Allow_HTTP</code>, From Zone: <code>trust</code>, To Zone: <code>untrust</code>.</div>
+                    <div id="customSecurityContainer"></div>
+                    <button type="button" onclick="addCustomRow('customSecurityContainer', [
+                        { placeholder: 'Rule Name (e.g., Allow_HTTP)', className: 'rule-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true },
+                        { placeholder: 'From Zone (e.g., trust)', className: 'from-zone', regex: /^.*$/, errorMessage: '' },
+                        { placeholder: 'To Zone (e.g., untrust)', className: 'to-zone', regex: /^.*$/, errorMessage: '' },
+                        { placeholder: 'Source (e.g., any)', className: 'source', regex: /^.*$/, errorMessage: '' },
+                        { placeholder: 'Destination (e.g., any)', className: 'destination', regex: /^.*$/, errorMessage: '' },
+                        { placeholder: 'Application (e.g., any)', className: 'application', regex: /^.*$/, errorMessage: '' },
+                        { placeholder: 'Service (e.g., any)', className: 'service', regex: /^.*$/, errorMessage: '' },
+                        { placeholder: 'Action (e.g., allow)', className: 'action', regex: /^(allow|deny)$/, errorMessage: 'Invalid action', required: true },
+                        { placeholder: 'Tag (e.g., POC-DELETE)', className: 'tag', regex: /^.*$/, errorMessage: '' }
+                    ])">Add Rule</button>
+                </div>
             </section>
-
-            <div class="download-section">
-                <button onclick="downloadPythonScript()" title="Download Python Script">
-                    <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/python/python-original.svg" alt="Python">
-                </button>
-                <button onclick="downloadTerraformScript()" title="Download Terraform Script">
-                    <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/terraform/terraform-original.svg" alt="Terraform">
-                </button>
-                <button onclick="downloadAnsibleScript()" title="Download Ansible Script">
-                    <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/ansible/ansible-original.svg" alt="Ansible">
-                </button>
-            </div>
         </main>
     </div>
 </body>
