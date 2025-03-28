@@ -12,6 +12,53 @@ function validateField(field, regex, errorMessage) {
     return true;
 }
 
+function addCustomRow(containerId, fields) {
+    const container = document.getElementById(containerId);
+    const row = document.createElement("div");
+    row.className = "row";
+
+    fields.forEach(field => {
+        let inputElement;
+
+        if (field.type === "select") {
+            inputElement = document.createElement("select");
+            field.options.forEach(option => {
+                const opt = document.createElement("option");
+                opt.value = option.value;
+                opt.textContent = option.label;
+                inputElement.appendChild(opt);
+            });
+        } else {
+            inputElement = document.createElement("input");
+            inputElement.type = "text";
+            inputElement.placeholder = field.placeholder || "";
+        }
+
+        inputElement.className = field.className || "";
+        if (field.required) inputElement.required = true;
+
+        inputElement.addEventListener("input", () => {
+            if (field.regex && !field.regex.test(inputElement.value)) {
+                inputElement.style.borderColor = "red";
+                inputElement.title = field.errorMessage || "Invalid input";
+            } else {
+                inputElement.style.borderColor = "";
+                inputElement.title = "";
+            }
+        });
+
+        row.appendChild(inputElement);
+    });
+
+    const deleteButton = document.createElement("button");
+    deleteButton.textContent = "Remove";
+    deleteButton.type = "button";
+    deleteButton.onclick = () => container.removeChild(row);
+    row.appendChild(deleteButton);
+
+    container.appendChild(row);
+}
+
 function gatherUserConfig() {
     // Gather user input from the form
     const firewallIp = document.getElementById("firewallIp").value;
