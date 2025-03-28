@@ -22,7 +22,18 @@
             padding: 2rem;
             max-width: 800px;
             margin: auto;
-            position: relative;
+            display: flex;
+            gap: 2rem;
+        }
+        .form-section {
+            flex: 3;
+        }
+        .download-section {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            gap: 1rem;
+            align-items: center;
         }
         label {
             font-weight: bold;
@@ -67,20 +78,12 @@
             color: #555;
             margin-bottom: 0.5rem;
         }
-        .download-icons {
-            position: absolute;
-            top: 2rem;
-            right: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-        .download-icons button {
+        .download-section button {
             background: none;
             border: none;
             cursor: pointer;
         }
-        .download-icons img {
+        .download-section img {
             width: 32px;
             height: 32px;
         }
@@ -137,8 +140,6 @@
         function removeAllDefaults() {
             includeDefaults = false;
             document.getElementById("customIpContainer").innerHTML = "";
-            document.getElementById("customAddressContainer").innerHTML = "";
-            document.getElementById("customServiceContainer").innerHTML = "";
             alert("Default configuration removed. Only custom values will be included in the scripts.");
         }
 
@@ -235,6 +236,7 @@ resource "panos_interface" "ethernet" {
             })))}
 `;
 
+            document.getElementById("downloadSection").style.display = "flex";
             return { pythonScript, terraformScript, ansibleScript };
         }
 
@@ -267,65 +269,44 @@ resource "panos_interface" "ethernet" {
         <h1>Palo Alto Firewall Automation</h1>
     </header>
     <main>
-        <div class="container">
-            <div class="form-section">
-                <p>Use this tool to generate Python, Terraform, and Ansible scripts for automating Palo Alto Firewall configurations. Fill in the required fields below and click "Generate Scripts".</p>
-                
-                <form onsubmit="event.preventDefault(); generateScripts();">
-                    <label for="firewallIp">Firewall Management IP:</label>
-                    <div class="explanation">Enter the management IP address of your Palo Alto Firewall. Default: <code>192.168.1.1</code>.</div>
-                    <input type="text" id="firewallIp" placeholder="192.168.1.1" value="192.168.1.1" required>
-                    <div class="error"></div>
+        <div class="form-section">
+            <p>Use this tool to generate Python, Terraform, and Ansible scripts for automating Palo Alto Firewall configurations. Fill in the required fields below and click "Generate Scripts".</p>
+            
+            <form onsubmit="event.preventDefault(); generateScripts();">
+                <label for="firewallIp">Firewall Management IP:</label>
+                <div class="explanation">Enter the management IP address of your Palo Alto Firewall. Default: <code>192.168.1.1</code>.</div>
+                <input type="text" id="firewallIp" placeholder="192.168.1.1" value="192.168.1.1" required>
+                <div class="error"></div>
 
-                    <label for="apiKey">API Key:</label>
-                    <div class="explanation">Enter the API key generated from your Palo Alto Firewall. This is required for authentication.</div>
-                    <input type="text" id="apiKey" placeholder="Enter your API key" required>
-                    <div class="error"></div>
+                <label for="apiKey">API Key:</label>
+                <div class="explanation">Enter the API key generated from your Palo Alto Firewall. This is required for authentication.</div>
+                <input type="text" id="apiKey" placeholder="Enter your API key" required>
+                <div class="error"></div>
 
-                    <label for="firewallHostname">Firewall Hostname:</label>
-                    <div class="explanation">Enter the hostname for your Palo Alto Firewall. Default: <code>PANFW01</code>.</div>
-                    <input type="text" id="firewallHostname" placeholder="PANFW01">
-                    <div class="error"></div>
+                <label for="firewallHostname">Firewall Hostname:</label>
+                <div class="explanation">Enter the hostname for your Palo Alto Firewall. Default: <code>PANFW01</code>.</div>
+                <input type="text" id="firewallHostname" placeholder="PANFW01">
+                <div class="error"></div>
 
-                    <h3>Custom Interface Configuration</h3>
-                    <div class="explanation">Add custom interfaces by selecting the interface name, and optionally specifying the IP address and subnet mask. Defaults to DHCP if no custom values are provided.</div>
-                    <div id="customIpContainer"></div>
-                    <button type="button" onclick="addCustomRow('customIpContainer', [
-                        { type: 'select', className: 'interface-name', options: [
-                            { value: 'ethernet1/1', label: 'ethernet1/1' },
-                            { value: 'ethernet1/2', label: 'ethernet1/2' },
-                            { value: 'ethernet1/3', label: 'ethernet1/3' },
-                            { value: 'ethernet1/4', label: 'ethernet1/4' }
-                        ], required: true },
-                        { placeholder: 'IP Address (e.g., 192.168.10.1)', className: 'ip-address', regex: /^\d{1,3}(\.\d{1,3}){3}$/, errorMessage: 'Invalid IP address' },
-                        { placeholder: 'Subnet Mask (e.g., 24)', className: 'subnet-mask', regex: /^\d{1,2}$/, errorMessage: 'Invalid subnet mask' }
-                    ])">Add Interface</button>
+                <h3>Custom Interface Configuration</h3>
+                <div class="explanation">Add custom interfaces by selecting the interface name, and optionally specifying the IP address and subnet mask. Defaults to DHCP if no custom values are provided.</div>
+                <div id="customIpContainer"></div>
+                <button type="button" onclick="addCustomRow('customIpContainer', [
+                    { type: 'select', className: 'interface-name', options: [
+                        { value: 'ethernet1/1', label: 'ethernet1/1' },
+                        { value: 'ethernet1/2', label: 'ethernet1/2' },
+                        { value: 'ethernet1/3', label: 'ethernet1/3' },
+                        { value: 'ethernet1/4', label: 'ethernet1/4' }
+                    ], required: true },
+                    { placeholder: 'IP Address (e.g., 192.168.10.1)', className: 'ip-address', regex: /^\d{1,3}(\.\d{1,3}){3}$/, errorMessage: 'Invalid IP address' },
+                    { placeholder: 'Subnet Mask (e.g., 24)', className: 'subnet-mask', regex: /^\d{1,2}$/, errorMessage: 'Invalid subnet mask' }
+                ])">Add Interface</button>
 
-                    <h3>Custom Address Objects</h3>
-                    <div class="explanation">Add custom address objects by specifying the name, IP address, and description.</div>
-                    <div id="customAddressContainer"></div>
-                    <button type="button" onclick="addCustomRow('customAddressContainer', [
-                        { placeholder: 'Address Name (e.g., web_server)', className: 'address-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true },
-                        { placeholder: 'IP Address (e.g., 192.168.30.10)', className: 'address-ip', regex: /^\d{1,3}(\.\d{1,3}){3}$/, errorMessage: 'Invalid IP address', required: true },
-                        { placeholder: 'Description (e.g., Web Server)', className: 'address-description', regex: /^.*$/, errorMessage: '' }
-                    ])">Add Address</button>
-
-                    <h3>Custom Service Objects</h3>
-                    <div class="explanation">Add custom service objects by specifying the name, protocol, port, and description.</div>
-                    <div id="customServiceContainer"></div>
-                    <button type="button" onclick="addCustomRow('customServiceContainer', [
-                        { placeholder: 'Service Name (e.g., http)', className: 'service-name', regex: /^[a-zA-Z0-9_]+$/, errorMessage: 'Invalid name', required: true },
-                        { placeholder: 'Protocol (e.g., tcp)', className: 'service-protocol', regex: /^(tcp|udp)$/, errorMessage: 'Invalid protocol', required: true },
-                        { placeholder: 'Port (e.g., 80)', className: 'service-port', regex: /^\d+$/, errorMessage: 'Invalid port', required: true },
-                        { placeholder: 'Description (e.g., HTTP Service)', className: 'service-description', regex: /^.*$/, errorMessage: '' }
-                    ])">Add Service</button>
-
-                    <button type="button" class="remove-defaults" onclick="removeAllDefaults()">Remove All Defaults</button>
-                    <button type="submit">Generate Scripts</button>
-                </form>
-            </div>
+                <button type="button" class="remove-defaults" onclick="removeAllDefaults()">Remove All Defaults</button>
+                <button type="submit">Generate Scripts</button>
+            </form>
         </div>
-        <div class="download-icons">
+        <div id="downloadSection" class="download-section">
             <button onclick="downloadPythonScript()" title="Download Python Script">
                 <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/python/python-original.svg" alt="Python">
             </button>
